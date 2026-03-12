@@ -2,8 +2,8 @@ import bpy
 from bpy.types import NodeTree
 
 
-class ExportVBPrepNodeTree(NodeTree):
-    bl_idname = "ExportVBPrepNodeTree"
+class EVBHNodeTree(NodeTree):
+    bl_idname = "EVBHNodeTree"
     bl_label = "엵툵 사전작업 노드 에디터"
     bl_icon = "NODETREE"
 
@@ -12,7 +12,7 @@ class ExportVBPrepNodeTree(NodeTree):
         return True
 
 
-classes = (ExportVBPrepNodeTree,)
+classes = (EVBHNodeTree,)
 
 
 def register():

@@ -1,11 +1,9 @@
-from . import json_parser, ini_parser
+from . import ini_utils
 
 
 def register():
-    json_parser.register()
-    ini_parser.register()
+    ini_utils.register()
 
 
 def unregister():
-    ini_parser.unregister()
-    json_parser.unregister()
+    ini_utils.unregister()

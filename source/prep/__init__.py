@@ -8,6 +8,6 @@ def register():
 
 
 def unregister():
-    properties.unregister()
     panel.unregister()
     operators.unregister()
+    properties.unregister()
