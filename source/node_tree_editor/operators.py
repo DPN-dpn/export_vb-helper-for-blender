@@ -80,7 +80,9 @@ class EVHB_OT_select_mod(Operator, ImportHelper):
             except Exception:
                 text_name = os.path.basename(p).replace("\\", "/")
             content = read_file_text(p)
-            text = text_data_block.create_or_replace_text_block(text_name, content, "MOD")
+            text = text_data_block.create_or_replace_text_block(
+                text_name, content, "MOD"
+            )
             created_texts.append(text)
 
         if created_texts:
@@ -91,7 +93,36 @@ class EVHB_OT_select_mod(Operator, ImportHelper):
         return {"FINISHED"}
 
 
-classes = (EVHB_OT_select_asset, EVHB_OT_select_mod)
+class EVHB_OT_unlink_asset(Operator):
+    bl_idname = "evhb.unlink_asset"
+    bl_label = "언링크 에셋"
+    bl_description = "불러온 에셋 텍스트 블록을 삭제하고 경로를 지웁니다."
+
+    def execute(self, context):
+        text_data_block.clear_text_blocks("ASSET")
+        context.scene.evbh_asset_path = ""
+        self.report({"INFO"}, "에셋 언링크 완료")
+        return {"FINISHED"}
+
+
+class EVHB_OT_unlink_mod(Operator):
+    bl_idname = "evhb.unlink_mod"
+    bl_label = "언링크 모드"
+    bl_description = "불러온 모드 텍스트 블록들을 삭제하고 경로를 지웁니다."
+
+    def execute(self, context):
+        text_data_block.clear_text_blocks("MOD")
+        context.scene.evbh_mod_path = ""
+        self.report({"INFO"}, "모드 언링크 완료")
+        return {"FINISHED"}
+
+
+classes = (
+    EVHB_OT_select_asset,
+    EVHB_OT_select_mod,
+    EVHB_OT_unlink_asset,
+    EVHB_OT_unlink_mod,
+)
 
 
 def register():

@@ -17,12 +17,15 @@ def create_or_replace_text_block(name: str, content: str, type: str):
     attached = False
     for area in bpy.context.screen.areas:
         if area.type == "TEXT_EDITOR":
-            try:
-                area.spaces.active.text = text
-                text.use_fake_user = False
-                attached = True
-            except Exception:
-                pass
+            space = area.spaces.active
+            space.text = text
+            text.use_fake_user = False
+
+            # Try to scroll view to top if supported by this Blender version
+            if hasattr(space, "top"):
+                space.top = 0
+
+            attached = True
             break
 
     # If no editor was available, keep fake user to avoid automatic removal
@@ -52,11 +55,8 @@ def clear_text_blocks(type: str = None):
     for name in list(_target_blocks):
         text = bpy.data.texts.get(name)
         if text is not None:
-            try:
-                bpy.data.texts.remove(text)
-                removed.append(name)
-            except Exception:
-                pass
+            bpy.data.texts.remove(text)
+            removed.append(name)
         _target_blocks.discard(name)
     return removed
 

@@ -16,38 +16,45 @@ def _custom_node_header_draw(self, context):
         return
 
     layout = self.layout
-    layout.template_header()
-
-    row = layout.row()
-    row.alignment = "RIGHT"
     scene = context.scene
 
-    layout.separator_spacer()
+    # 에디터 타입
+    layout.template_header()
 
-    row.label(
-        text=(
-            "에셋: "
-            + (
-                os.path.basename(os.path.dirname(scene.evbh_asset_path))
-                if scene.evbh_asset_path
-                else "선택 없음"
-            )
-        )
-    )
-    row.operator("evhb.select_asset", text="", icon="FILE")
-    row.label(
-        text=(
-            "모드: "
-            + (
-                os.path.basename(os.path.normpath(scene.evbh_mod_path))
-                if scene.evbh_mod_path
-                else "선택 없음"
-            )
-        )
-    )
-    row.operator("evhb.select_mod", text="", icon="FILE_FOLDER")
+    row = layout.row(align=True)
+    row.separator()
 
-    layout.separator_spacer()
+    # 에셋 선택
+    box_asset = row.box()
+    row_box_asset = box_asset.row(align=True)
+    row_box_asset.operator("evhb.select_asset", text="에셋", icon="FILE")
+    row_box_asset.separator()
+    if scene.evbh_asset_path:
+        row_box_asset.label(
+            text=os.path.basename(os.path.dirname(scene.evbh_asset_path)),
+        )
+    else:
+        row_box_asset.label(text="선택 없음")
+    row_box_asset.separator()
+    if scene.evbh_asset_path:
+        row_box_asset.operator("evhb.unlink_asset", text="", icon="X")
+
+    row.separator()
+
+    # 모드 선택
+    box_mod = row.box()
+    row_box_mod = box_mod.row(align=True)
+    row_box_mod.operator("evhb.select_mod", text="모드", icon="FILE_FOLDER")
+    if scene.evbh_mod_path:
+        row_box_asset.separator()
+        row_box_mod.label(
+            text=os.path.basename(os.path.normpath(scene.evbh_mod_path)),
+        )
+        row_box_asset.separator()
+    else:
+        row_box_mod.label(text="선택 없음")
+    if scene.evbh_mod_path:
+        row_box_mod.operator("evhb.unlink_mod", text="", icon="X")
 
 
 def register():
