@@ -2,7 +2,7 @@ import bpy
 from bpy.types import Operator
 from bpy.props import StringProperty
 from bpy_extras.io_utils import ImportHelper
-from ..data import text_data_block
+from ...data import text_data_block
 import os
 
 

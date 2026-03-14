@@ -1,4 +1,4 @@
-from . import nodes, sockets, tree, operators, editor
+from . import nodes, sockets, tree, editor, operators
 
 
 def register():

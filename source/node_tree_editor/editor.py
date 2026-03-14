@@ -45,16 +45,25 @@ def _custom_node_header_draw(self, context):
     box_mod = row.box()
     row_box_mod = box_mod.row(align=True)
     row_box_mod.operator("evhb.select_mod", text="모드", icon="FILE_FOLDER")
+    row_box_mod.separator()
     if scene.evbh_mod_path:
-        row_box_asset.separator()
         row_box_mod.label(
             text=os.path.basename(os.path.normpath(scene.evbh_mod_path)),
         )
-        row_box_asset.separator()
     else:
         row_box_mod.label(text="선택 없음")
+    row_box_mod.separator()
     if scene.evbh_mod_path:
         row_box_mod.operator("evhb.unlink_mod", text="", icon="X")
+
+    row.separator()
+
+    # 노드 트리 생성
+    col = row.column(align=True)
+    col.enabled = False
+    if scene.evbh_asset_path and scene.evbh_mod_path:
+        col.enabled = True
+    col.operator("evhb.create_new_tree", text="", icon="PLAY")
 
 
 def register():

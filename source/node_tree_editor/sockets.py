@@ -29,7 +29,7 @@ class GenericSocket(NodeSocket):
 class INI_PositionSocket(GenericSocket):
     bl_idname = "INI_PositionSocket"
     bl_label = "Position"
-    socket_color = (0.2, 0.4, 0.8, 1.0)
+    socket_color = (0.8, 0.6, 0.3, 1.0)
 
 
 class INI_BlendSocket(GenericSocket):
@@ -47,7 +47,7 @@ class INI_TexcoordSocket(GenericSocket):
 class INI_IBSocket(GenericSocket):
     bl_idname = "INI_IBSocket"
     bl_label = "IB"
-    socket_color = (0.9, 0.6, 0.2, 1.0)
+    socket_color = (0.1, 0.6, 0.9, 1.0)
 
 
 class ResultSocket(NodeSocket):
@@ -58,7 +58,7 @@ class ResultSocket(NodeSocket):
         layout.label(text=text or self.name)
 
     def draw_color(self, context, node):
-        return (0.1, 0.6, 0.9, 1.0)
+        return (0.0, 0.0, 0.0, 1.0)
 
 
 classes = (
