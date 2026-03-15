@@ -5,7 +5,7 @@ from bpy.types import Node
 class ModFileNode(Node):
     bl_idname = "ModFileNode"
     bl_label = "Mod File"
-    bl_icon = "PLAY"
+    bl_icon = "MOD_ARMATURE"
 
     @classmethod
     def poll(cls, ntree):
@@ -18,7 +18,7 @@ class ModFileNode(Node):
 class AssetSlotNode(Node):
     bl_idname = "AssetSlotNode"
     bl_label = "Asset Slot"
-    bl_icon = "FILE_TEXT"
+    bl_icon = "CON_ARMATURE"
 
     @classmethod
     def poll(cls, ntree):
@@ -32,7 +32,7 @@ class AssetSlotNode(Node):
 class ResultNode(Node):
     bl_idname = "ResultNode"
     bl_label = "Result"
-    bl_icon = "OUTPUT"
+    bl_icon = "POSE_HLT"
 
     @classmethod
     def poll(cls, ntree):

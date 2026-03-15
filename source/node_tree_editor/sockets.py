@@ -7,20 +7,22 @@ class GenericSocket(NodeSocket):
 
     def draw(self, context, layout, node, text):
         slotLabel = text or self.name
-        hash = self.get("hash", "")
+        hash_val = self.get("hash", "")
+        
         split = layout.split(factor=0.6)
-        c = split.column()
-        c.alignment = "RIGHT"
+        left = split.column()
+        left.alignment = "LEFT"
+        right = split.column()
+        right.alignment = "RIGHT"
+
         if self.is_output:
-            if hash:
-                split.column().label(text=str(hash))
-            else:
-                split.column().label(text=str.empty)
-            c.label(text=text or self.name)
+            # 출력 소켓: 왼쪽에 hash, 오른쪽에 라벨
+            left.label(text=str(hash_val) if hash_val else "")
+            right.label(text=slotLabel)
         else:
-            split.column().label(text=slotLabel)
-            if hash:
-                c.label(text=str(hash))
+            # 입력 소켓: 왼쪽에 라벨, 오른쪽에 hash
+            left.label(text=slotLabel)
+            right.label(text=str(hash_val) if hash_val else "")
 
     def draw_color(self, context, node):
         return getattr(self, "socket_color", self.socket_color)
