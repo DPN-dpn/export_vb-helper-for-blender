@@ -133,9 +133,6 @@ def _create_mod_nodes(op, tree):
                 continue
             sections[cur_name].append(line)
 
-        # 모든 섹션을 문자열로 합쳐 참조/해시 검색에 사용
-        section_texts = {name: "\n".join(lines) for name, lines in sections.items()}
-
         # ini 파일 하나당 노드 하나 생성
         node = tree.nodes.new("ModFileNode")
         node.name = text_name
@@ -227,9 +224,9 @@ def _create_mod_nodes(op, tree):
             except Exception:
                 continue
 
-            if socket_count == 0:
-                tree.nodes.remove(node)
-                continue
+        if socket_count == 0:
+            tree.nodes.remove(node)
+            continue
 
         node.location = (x, y)
         y += y_step + socket_count * y_socket_step
@@ -238,6 +235,16 @@ def _create_mod_nodes(op, tree):
     op.report({"INFO"}, f"생성된 모드 노드 수: {created_count}")
 
     return
+
+
+def _create_result_node(tree):
+    node = tree.nodes.new("ResultNode")
+    node.name = "Result"
+    try:
+        node.label = "Result"
+    except Exception:
+        pass
+    node.location = (350, 0)
 
 
 class EVHB_OT_create_new_tree(Operator):
@@ -266,6 +273,7 @@ class EVHB_OT_create_new_tree(Operator):
 
         _create_asset_nodes(self, tree)
         _create_mod_nodes(self, tree)
+        _create_result_node(tree)
         return {"FINISHED"}
 
 

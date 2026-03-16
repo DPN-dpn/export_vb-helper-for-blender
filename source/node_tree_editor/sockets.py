@@ -8,21 +8,21 @@ class GenericSocket(NodeSocket):
     def draw(self, context, layout, node, text):
         slotLabel = text or self.name
         hash_val = self.get("hash", "")
-        
-        split = layout.split(factor=0.6)
-        left = split.column()
-        left.alignment = "LEFT"
-        right = split.column()
-        right.alignment = "RIGHT"
 
         if self.is_output:
-            # 출력 소켓: 왼쪽에 hash, 오른쪽에 라벨
-            left.label(text=str(hash_val) if hash_val else "")
-            right.label(text=slotLabel)
+            row = layout.row(align=True)
+            col_left = row.column(align=True)
+            col_left.scale_x = 1.0
+            col_left.label(text=str(hash_val) if hash_val else "")
+            row.separator()
+            row.label(text=slotLabel)
         else:
-            # 입력 소켓: 왼쪽에 라벨, 오른쪽에 hash
-            left.label(text=slotLabel)
-            right.label(text=str(hash_val) if hash_val else "")
+            row = layout.row(align=True)
+            row.label(text=slotLabel)
+            row.separator()
+            col_left = row.column(align=True)
+            col_left.scale_x = 1.0
+            col_left.label(text=str(hash_val) if hash_val else "")
 
     def draw_color(self, context, node):
         return getattr(self, "socket_color", self.socket_color)
@@ -54,10 +54,10 @@ class INI_IBSocket(GenericSocket):
 
 class ResultSocket(NodeSocket):
     bl_idname = "ResultSocket"
-    bl_label = "Result"
-
+    bl_options = {'MULTI_INPUT'}
+    
     def draw(self, context, layout, node, text):
-        layout.label(text=text or self.name)
+        layout.label(text="Result")
 
     def draw_color(self, context, node):
         return (0.0, 0.0, 0.0, 1.0)
