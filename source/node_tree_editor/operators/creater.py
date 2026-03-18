@@ -4,6 +4,7 @@ from bpy.props import StringProperty
 import json
 import re
 from ...data import text_data_block
+from ...prep import properties as prep_properties
 
 
 def _find_first_node_editor_space(context):
@@ -297,6 +298,32 @@ def _create_mod_texture_sockets(node, sections):
                             break
                     break
 
+        # 텍스처 소켓 토글 처리
+        try:
+            show_tex = getattr(bpy.context.scene, "evbh_show_texture_sockets", True)
+        except Exception:
+            show_tex = True
+        key = "_evbh_saved_texture_sockets"
+        if not show_tex:
+            try:
+                saved = list(node.get(key, []))
+            except Exception:
+                saved = []
+            saved.append(
+                {
+                    "is_output": True,
+                    "name": socket_label,
+                    "hash": str(hash_val) if hash_val else None,
+                }
+            )
+            try:
+                node[key] = saved
+            except Exception:
+                pass
+            texture_count += 1
+            continue
+
+        # 소켓 생성
         try:
             out_sock = node.outputs.new("INI_TextureSocket", socket_label)
             texture_count += 1
@@ -330,24 +357,51 @@ class EVHB_OT_create_new_tree(Operator):
     name: StringProperty(name="Name", default="EVBH Graph")
 
     def execute(self, context):
+        # 먼저 현재 화면에서 열려있는 EVBHNodeTree 인스턴스들을 언링크하고 데이터블록에서 제거합니다.
+        opened_groups = set()
+        for win in bpy.context.window_manager.windows:
+            for area in win.screen.areas:
+                if area.type != "NODE_EDITOR":
+                    continue
+                for space in area.spaces:
+                    if getattr(space, "type", None) != "NODE_EDITOR":
+                        continue
+                    ng = getattr(space, "node_tree", None)
+                    if ng is None:
+                        continue
+                    opened_groups.add(ng)
+                    space.node_tree = None
+
+        # 또한 context.area가 NODE_EDITOR이면 active도 언링크
+        if context.area and context.area.type == "NODE_EDITOR":
+            context.area.spaces.active.node_tree = None
+
+        # 수집된 그룹을 데이터블록에서 제거
+        for ng in list(opened_groups):
+            if ng.name in bpy.data.node_groups:
+                bpy.data.node_groups.remove(ng)
+
         tree = bpy.data.node_groups.new(self.name, "EVBHNodeTree")
 
         # 현재 화면의 첫 번째 NODE_EDITOR 공간을 찾아 새 노드트리를 엽니다.
         space = _find_first_node_editor_space(context)
         if space is not None:
             space.node_tree = tree
-            # 일부 버전/스페이스에서 tree_type 속성을 사용하므로 시도해봄
-            if hasattr(space, "tree_type"):
-                space.tree_type = "EVBHNodeTree"
 
         # 현재 활성 영역이 NODE_EDITOR이면 컨텍스트의 space_data도 업데이트
         if context.area and context.area.type == "NODE_EDITOR":
             context.area.spaces.active.node_tree = tree
         self.report({"INFO"}, f"노드 트리 생성: {tree.name}")
 
+        # 노드 생성
         _create_asset_nodes(self, tree)
         _create_mod_nodes(self, tree)
         _create_result_node(tree)
+
+        # 텍스처 토글 상태에 따라 텍스처 소켓 생성/제거
+        if not getattr(bpy.context.scene, "evbh_show_texture_sockets", True):
+            prep_properties.apply_texture_sockets_toggle(False)
+
         return {"FINISHED"}
 
 

@@ -6,6 +6,11 @@ class GenericSocket(NodeSocket):
     socket_color = (0.6, 0.6, 0.6, 1.0)
 
     def draw(self, context, layout, node, text):
+        # 토글이 꺼져있으면 INI_TextureSocket은 그리지 않음
+        show_tex = getattr(context.scene, "evbh_show_texture_sockets", True)
+        if getattr(self.__class__, "bl_idname", "") == "INI_TextureSocket" and not show_tex:
+            return
+        
         slotLabel = text or self.name
         hash_val = self.get("hash", "")
 

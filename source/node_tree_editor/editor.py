@@ -65,6 +65,11 @@ def _custom_node_header_draw(self, context):
         col.enabled = True
     col.operator("evhb.create_new_tree", text="", icon="PLAY")
 
+    row.separator()
+
+    # 텍스처 소켓 활성화
+    row.prop(scene, "evbh_show_texture_sockets", text="", toggle=True, icon="TEXTURE")
+
 
 def register():
     global _original_node_header_draw
