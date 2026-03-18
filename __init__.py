@@ -18,12 +18,12 @@ def register():
     updator.register()
     node_tree_editor.register()
     prep.register()
-    #text_editor.register()
+    text_editor.register()
 
 
 # 애드온 해제 함수
 def unregister():
-    #text_editor.unregister()
+    text_editor.unregister()
     prep.unregister()
     node_tree_editor.unregister()
     updator.unregister()

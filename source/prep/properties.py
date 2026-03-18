@@ -16,8 +16,12 @@ def register():
     bpy.types.Scene.evbh_mod_path = StringProperty(
         name="모드", default="", subtype="DIR_PATH", update=_prop_update
     )
+    bpy.types.Scene.evbh_export_path = StringProperty(
+        name="내보내기 폴더", default="", subtype="DIR_PATH", update=_prop_update
+    )
 
 
 def unregister():
-    del bpy.types.Scene.evbh_asset_path
+    del bpy.types.Scene.evbh_export_path
     del bpy.types.Scene.evbh_mod_path
+    del bpy.types.Scene.evbh_asset_path

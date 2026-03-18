@@ -224,6 +224,9 @@ def _create_mod_nodes(op, tree):
             except Exception:
                 continue
 
+        # 모드 노드에 모드 텍스처 소켓 추가
+        socket_count += _create_mod_texture_sockets(node, sections)
+
         if socket_count == 0:
             tree.nodes.remove(node)
             continue
@@ -234,7 +237,78 @@ def _create_mod_nodes(op, tree):
 
     op.report({"INFO"}, f"생성된 모드 노드 수: {created_count}")
 
-    return
+
+def _create_mod_texture_sockets(node, sections):
+    texture_count = 0
+
+    for sec_name, lines in sections.items():
+        # Resource로 시작하는 섹션을 대상으로 함 (대소문자 무시)
+        if not sec_name.lower().startswith("resource"):
+            continue
+
+        # type= 또는 format= 구문이 있으면 건너뜀
+        has_type = any(re.match(r"^\s*type\s*=", ln, re.IGNORECASE) for ln in lines)
+        has_format = any(re.match(r"^\s*format\s*=", ln, re.IGNORECASE) for ln in lines)
+        if has_type or has_format:
+            continue
+
+        # 섹션 내부에서 filename, type 를 찾음
+        filename = None
+        for ln in lines:
+            # key = value 형태를 느슨하게 매칭
+            m = re.match(r"^(?P<k>[^=]+)=(?P<v>.+)$", ln)
+            if not m:
+                continue
+            k = m.group("k").strip().lower()
+            v = m.group("v").strip()
+            # 값에서 주석 제거
+            v = re.split(r";|#", v)[0].strip()
+            if k == "filename":
+                filename = v.strip('"')
+
+        # 텍스처 확장자 조건
+        if not filename.lower().endswith((".dds", ".jpg", ".png")):
+            continue
+
+        # 소켓 라벨은 filename 이나 섹션 이름
+        socket_label = filename or sec_name
+
+        # 다른 섹션의 key=value에서 현재 섹션명을 값으로 사용하는지 검사하여
+        # 참조 섹션의 hash 값을 가져옴
+        hash_val = None
+        for other_name, other_lines in sections.items():
+            if other_name == sec_name:
+                continue
+            for ln in other_lines:
+                m = re.match(r"^(?P<k>[^=]+)=\s*(?:ref\s*)?(?P<v>.+)$", ln)
+                if not m:
+                    continue
+                k = m.group("k").strip().lower()
+                v = m.group("v").strip()
+                v_clean = re.split(r";|#", v)[0].strip().strip('"')
+                if v_clean == sec_name:
+                    # 참조 섹션에서 hash 값 추출
+                    for ln2 in other_lines:
+                        m2 = re.match(r"^\s*hash\s*=\s*(.+)$", ln2, re.IGNORECASE)
+                        if m2:
+                            hv = m2.group(1).strip()
+                            hv = re.split(r";|#", hv)[0].strip().strip('"')
+                            hash_val = hv
+                            break
+                    break
+
+        try:
+            out_sock = node.outputs.new("INI_TextureSocket", socket_label)
+            texture_count += 1
+            if hash_val:
+                try:
+                    out_sock["hash"] = str(hash_val)
+                except Exception:
+                    pass
+        except Exception:
+            continue
+
+    return texture_count
 
 
 def _create_result_node(tree):

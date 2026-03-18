@@ -52,10 +52,16 @@ class INI_IBSocket(GenericSocket):
     socket_color = (0.1, 0.6, 0.9, 1.0)
 
 
+class INI_TextureSocket(GenericSocket):
+    bl_idname = "INI_TextureSocket"
+    bl_label = "Texture"
+    socket_color = (0.4, 0.5, 0.4, 1.0)
+
+
 class ResultSocket(NodeSocket):
     bl_idname = "ResultSocket"
-    bl_options = {'MULTI_INPUT'}
-    
+    bl_options = {"MULTI_INPUT"}
+
     def draw(self, context, layout, node, text):
         layout.label(text="Result")
 
@@ -68,6 +74,7 @@ classes = (
     INI_BlendSocket,
     INI_TexcoordSocket,
     INI_IBSocket,
+    INI_TextureSocket,
     ResultSocket,
 )
 

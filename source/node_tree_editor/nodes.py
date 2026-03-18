@@ -17,6 +17,21 @@ class ModFileNode(Node):
         self.color = (0.20, 0.17, 0.17)
 
 
+class ModTextureNode(Node):
+    bl_idname = "ModTextureNode"
+    bl_label = "Mod Texture"
+    bl_icon = "TEXTURE"
+    bl_width_default = 200
+
+    @classmethod
+    def poll(cls, ntree):
+        return True
+
+    def init(self, context):
+        self.use_custom_color = True
+        self.color = (0.17, 0.20, 0.17)
+
+
 class AssetSlotNode(Node):
     bl_idname = "AssetSlotNode"
     bl_label = "Asset Slot"
@@ -82,6 +97,7 @@ class ResultNode(Node):
 
 classes = (
     ModFileNode,
+    ModTextureNode,
     AssetSlotNode,
     ResultNode,
 )
