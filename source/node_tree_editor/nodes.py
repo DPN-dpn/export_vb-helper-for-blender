@@ -5,7 +5,7 @@ from bpy.types import Node
 class ModFileNode(Node):
     bl_idname = "ModFileNode"
     bl_label = "Mod File"
-    bl_icon = "MOD_ARMATURE"
+    bl_icon = "MATCLOTH"
     bl_width_default = 200
 
     @classmethod
@@ -17,25 +17,10 @@ class ModFileNode(Node):
         self.color = (0.20, 0.17, 0.17)
 
 
-class ModTextureNode(Node):
-    bl_idname = "ModTextureNode"
-    bl_label = "Mod Texture"
-    bl_icon = "TEXTURE"
-    bl_width_default = 200
-
-    @classmethod
-    def poll(cls, ntree):
-        return True
-
-    def init(self, context):
-        self.use_custom_color = True
-        self.color = (0.17, 0.20, 0.17)
-
-
 class AssetSlotNode(Node):
     bl_idname = "AssetSlotNode"
     bl_label = "Asset Slot"
-    bl_icon = "CON_ARMATURE"
+    bl_icon = "USER"
     bl_width_default = 180
 
     @classmethod
@@ -63,7 +48,7 @@ class AssetSlotNode(Node):
 class ResultNode(Node):
     bl_idname = "ResultNode"
     bl_label = "Result"
-    bl_icon = "POSE_HLT"
+    bl_icon = "GROUP"
     bl_width_default = 160
     bl_height_default = 120
 
@@ -97,7 +82,6 @@ class ResultNode(Node):
 
 classes = (
     ModFileNode,
-    ModTextureNode,
     AssetSlotNode,
     ResultNode,
 )

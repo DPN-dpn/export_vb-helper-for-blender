@@ -24,23 +24,6 @@ def _custom_node_header_draw(self, context):
     row = layout.row(align=True)
     row.separator()
 
-    # 에셋 선택
-    box_asset = row.box()
-    row_box_asset = box_asset.row(align=True)
-    row_box_asset.operator("evhb.select_asset", text="에셋", icon="FILE")
-    row_box_asset.separator()
-    if scene.evbh_asset_path:
-        row_box_asset.label(
-            text=os.path.basename(os.path.dirname(scene.evbh_asset_path)),
-        )
-    else:
-        row_box_asset.label(text="선택 없음")
-    row_box_asset.separator()
-    if scene.evbh_asset_path:
-        row_box_asset.operator("evhb.unlink_asset", text="", icon="X")
-
-    row.separator()
-
     # 모드 선택
     box_mod = row.box()
     row_box_mod = box_mod.row(align=True)
@@ -55,6 +38,23 @@ def _custom_node_header_draw(self, context):
     row_box_mod.separator()
     if scene.evbh_mod_path:
         row_box_mod.operator("evhb.unlink_mod", text="", icon="X")
+
+    row.separator()
+
+    # 에셋 선택
+    box_asset = row.box()
+    row_box_asset = box_asset.row(align=True)
+    row_box_asset.operator("evhb.select_asset", text="에셋", icon="FILE")
+    row_box_asset.separator()
+    if scene.evbh_asset_path:
+        row_box_asset.label(
+            text=os.path.basename(os.path.dirname(scene.evbh_asset_path)),
+        )
+    else:
+        row_box_asset.label(text="선택 없음")
+    row_box_asset.separator()
+    if scene.evbh_asset_path:
+        row_box_asset.operator("evhb.unlink_asset", text="", icon="X")
 
     row.separator()
 
