@@ -89,6 +89,8 @@ def _create_asset_nodes(op, tree):
                     sock["hash"] = str(ib_hint)
                 except Exception:
                     pass
+                
+            socket_count += _create_asset_texture_sockets(node, comp)
 
             node.location = (x, y)
             y += y_step + socket_count * y_socket_step
@@ -96,6 +98,67 @@ def _create_asset_nodes(op, tree):
 
     op.report({"INFO"}, f"생성된 에셋 노드 수: {created_count}")
 
+def _create_asset_texture_sockets(node, comp):
+    texture_count = 0
+
+    classifications = comp.get("object_classifications", []) or []
+    texture_hashes = comp.get("texture_hashes", []) or []
+
+    try:
+        show_tex = getattr(bpy.context.scene, "evbh_show_texture_sockets", True)
+    except Exception:
+        show_tex = True
+    key = "_evbh_saved_texture_sockets"
+
+    for idx, classification in enumerate(classifications):
+        try:
+            textures = texture_hashes[idx] or []
+        except Exception:
+            textures = []
+
+        for tex in textures:
+            if not tex:
+                continue
+
+            # 기대형태: [name, ext, hash] 또는 dict
+            if isinstance(tex, (list, tuple)) and len(tex) >= 3:
+                tex_name = str(tex[0])
+                hv = tex[2]
+            elif isinstance(tex, dict):
+                tex_name = tex.get("name") or tex.get("type") or "Texture"
+                hv = tex.get("hash")
+            else:
+                continue
+
+            socket_label = f"IB_{classification}_{tex_name}"
+
+            if not show_tex:
+                try:
+                    saved = list(node.get(key, []))
+                except Exception:
+                    saved = []
+                saved.append(
+                    {"is_output": False, "name": socket_label, "hash": str(hv) if hv else None}
+                )
+                try:
+                    node[key] = saved
+                except Exception:
+                    pass
+                texture_count += 1
+                continue
+
+            try:
+                in_sock = node.inputs.new("INI_TextureSocket", socket_label)
+                texture_count += 1
+                if hv:
+                    try:
+                        in_sock["hash"] = str(hv)
+                    except Exception:
+                        pass
+            except Exception:
+                continue
+
+    return texture_count
 
 def _create_mod_nodes(op, tree):
     mod_blocks = getattr(text_data_block, "_mod_text_blocks", set())
@@ -345,7 +408,7 @@ def _create_result_node(tree):
         node.label = "Result"
     except Exception:
         pass
-    node.location = (350, 0)
+    node.location = (330, 0)
 
 
 class EVHB_OT_create_new_tree(Operator):
