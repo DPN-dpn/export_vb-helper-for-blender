@@ -20,7 +20,7 @@ class ModFileNode(Node):
 class AssetSlotNode(Node):
     bl_idname = "AssetSlotNode"
     bl_label = "Asset Slot"
-    bl_icon = "USER"
+    bl_icon = "RNA"
     bl_width_default = 180
 
     @classmethod

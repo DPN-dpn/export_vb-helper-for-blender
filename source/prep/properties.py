@@ -81,7 +81,7 @@ def register():
         name="내보내기 폴더", default="", subtype="DIR_PATH", update=_prop_update
     )
     bpy.types.Scene.evbh_show_texture_sockets = BoolProperty(
-        name="텍스처 소켓 표시", default=True, update=_toggle_texture_sockets
+        name="텍스처 소켓 표시", default=False, update=_toggle_texture_sockets
     )
 
 

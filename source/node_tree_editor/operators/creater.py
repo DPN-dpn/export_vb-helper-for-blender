@@ -144,7 +144,6 @@ def _create_asset_texture_sockets(node, comp):
                     node[key] = saved
                 except Exception:
                     pass
-                texture_count += 1
                 continue
 
             try:
@@ -383,7 +382,6 @@ def _create_mod_texture_sockets(node, sections):
                 node[key] = saved
             except Exception:
                 pass
-            texture_count += 1
             continue
 
         # 소켓 생성

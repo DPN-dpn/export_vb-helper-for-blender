@@ -60,10 +60,14 @@ def _custom_node_header_draw(self, context):
 
     # 노드 트리 생성
     col = row.column(align=True)
-    col.enabled = False
-    if scene.evbh_asset_path and scene.evbh_mod_path:
-        col.enabled = True
+    col.enabled = bool(scene.evbh_asset_path) and bool(scene.evbh_mod_path)
     col.operator("evhb.create_new_tree", text="", icon="PLAY")
+
+    # 자동 연결/내보내기
+    row2 = row.row(align=True)
+    row2.enabled = bool(getattr(context.space_data, "node_tree", None))
+    row2.operator("evhb.auto_link", text="", icon="GP_ONLY_SELECTED")
+    row2.operator("evhb.export_mod", text="", icon="EXPORT")
 
     row.separator()
 
