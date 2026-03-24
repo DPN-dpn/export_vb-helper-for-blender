@@ -21,31 +21,33 @@ def select_export_path(context, path: str) -> str:
 
 def collect_result_mappings(node_tree):
     """
-    node_tree: bpy.types.NodeTree
-    반환 형식:
-    [
-      {
-        "input_index": 0,
-        "input_name": "Data 1",
-        "assets": [
-          {
-            "asset_node_name": "AssetNode",
-            "asset_node_type": "AssetSlotNode",
-            "asset_socket_name": "Result",
-            "mods": [
-              {
-                "mod_node_name": "mod.ini.txt",
-                "mod_node_type": "ModFileNode",
-                "mod_socket_name": "Texture",
-                "mod_socket_hash": "abcd1234",
-                "asset_input_name": "Position",
-                "asset_input_hash": "hash-if-any"
-              }, ...
-            ]
-          }, ...
-        ]
-      }, ...
-    ]
+    수집된 매핑 정보:
+    [{'assets': [{'asset_node_name': 'Body',
+                'asset_node_type': 'AssetSlotNode',
+                'asset_socket_name': 'Result',
+                'mods': [{'asset_input_hash': 'f84d5a49',
+                            'asset_input_name': 'Position',
+                            'mod_node_name': 'AriaDevil.ini',
+                            'mod_node_type': 'ModFileNode',
+                            'mod_socket_hash': '56eaff1c',
+                            'mod_socket_name': 'AriaDevilBodyPosition.buf',
+                            'mod_socket_type': 'INI_PositionSocket'},
+                        {'asset_input_hash': 'c6bb960b',
+                            'asset_input_name': 'IB_A',
+                            'mod_node_name': 'AriaDevil.ini',
+                            'mod_node_type': 'ModFileNode',
+                            'mod_socket_hash': 'c6bb960b',
+                            'mod_socket_name': 'AriaDevilBodyA.ib',
+                            'mod_socket_type': 'INI_IBSocket'},
+                        {'asset_input_hash': 'a55f187e',
+                            'asset_input_name': 'IB_A_Diffuse',
+                            'mod_node_name': 'AriaDevil.ini',
+                            'mod_node_type': 'ModFileNode',
+                            'mod_socket_hash': 'c6bb960b',
+                            'mod_socket_name': 'AriaDevilBodyADiffuse.dds',
+                            'mod_socket_type': 'INI_TextureSocket'},
+    'input_index': 0,
+    'input_name': 'Data 1'},
     """
     if node_tree is None:
         return []
@@ -98,6 +100,9 @@ def collect_result_mappings(node_tree):
                         "mod_node_type": getattr(mod_node, "bl_idname", ""),
                         "mod_socket_name": (
                             getattr(mod_socket, "name", "") if mod_socket else ""
+                        ),
+                        "mod_socket_type": (
+                            getattr(getattr(mod_socket, "__class__", None), "bl_idname", "") if mod_socket else ""
                         ),
                         "mod_socket_hash": (
                             mod_socket.get("hash", "")
@@ -249,6 +254,186 @@ def process_mods(op, export_parent, source_mod_path, mods_needed):
     return
 
 
+def _perform_file_copies(op, export_dir, occurrences):
+    """각 소켓별로 파일을 복사하고 INI 치환 목록을 생성하여 반환한다.
+    반환: (copied_files, rename_map, ini_replacements, originals_to_delete)
+    """
+    rename_map = {}
+    copied_files = []
+    ini_replacements = {}
+    originals_to_delete = set()
+
+    for occ in occurrences:
+        mod_name = occ.get("mod_name")
+        orig = occ.get("orig")
+        orig_base = occ.get("orig_base")
+        desired_new = occ.get("new_base")
+
+        expected_src = os.path.normpath(os.path.join(export_dir, os.path.dirname(mod_name), orig))
+        if not os.path.exists(expected_src):
+            found = None
+            for root, dirs, files in os.walk(export_dir):
+                if orig_base in files:
+                    found = os.path.join(root, orig_base)
+                    break
+            if found:
+                expected_src = found
+            else:
+                op.report({"WARNING"}, f"복사할 원본 파일을 찾지 못함: {orig} (mod: {mod_name})")
+                continue
+
+        dst_dir = os.path.dirname(expected_src)
+        originals_to_delete.add(expected_src)
+        dst = os.path.join(dst_dir, desired_new)
+        if os.path.exists(dst):
+            base, ext = os.path.splitext(desired_new)
+            i = 1
+            while True:
+                candidate = f"{base}_{i}{ext}"
+                dst = os.path.join(dst_dir, candidate)
+                if not os.path.exists(dst):
+                    desired_new = candidate
+                    break
+                i += 1
+
+        try:
+            shutil.copy2(expected_src, dst)
+            copied_files.append(dst)
+            rel_src = os.path.relpath(expected_src, export_dir).replace("\\", "/")
+            rel_dst = os.path.relpath(dst, export_dir).replace("\\", "/")
+            rename_map.setdefault(rel_src, []).append(rel_dst)
+        except Exception as e:
+            op.report({"WARNING"}, f"소켓별 파일 복사 실패: {expected_src} -> {dst} ({e})")
+            continue
+
+        ini_path = os.path.normpath(os.path.join(export_dir, mod_name))
+        ini_replacements.setdefault(ini_path, []).append((orig_base, desired_new))
+
+    return copied_files, rename_map, ini_replacements, originals_to_delete
+
+
+def _perform_ini_replacements(op, ini_replacements):
+    """INI 파일들에 대해 순차적 치환을 수행한다."""
+    for ini_path, repls in ini_replacements.items():
+        if not os.path.exists(ini_path):
+            continue
+        try:
+            with open(ini_path, "r", encoding="utf-8") as f:
+                data = f.read()
+        except Exception:
+            continue
+
+        for orig_base, new_base in repls:
+            idx = data.find(orig_base)
+            if idx == -1:
+                continue
+            data = data[:idx] + data[idx:].replace(orig_base, new_base, 1)
+
+        try:
+            with open(ini_path, "w", encoding="utf-8") as f:
+                f.write(data)
+        except Exception as e:
+            op.report({"WARNING"}, f"INI 파일 쓰기 실패: {ini_path} ({e})")
+
+
+
+def replace_strings(op, mappings):
+    # 내보내기로 복사된 파일에서 매핑 정보를 바탕으로 문자열교체함
+    # {evbh_asset_path의 폴더명}{asset_node_name}{asset_input_name(mod_socket_type이 INI_IBSocket일 경우 _로 분리한 뒷 문자(예: IB_A가 원문이면 A), INI_TextureSocket일 경우 _로 분리한 뒷 문자들 연결(예: IB_A_Diffuse가 원문이면 ADiffuse), 둘 다 아니면 그냥 asset_input_name)}
+    # evbh_asset_path는 파일경로이므로 파일명이 아닌 폴더명으로 하는 것에 주의
+    # 이후 문자열 교체 과정은 문자열의 의도치 않은 중복을 방지하기 위해 원문->임시토큰->최종문자열 순으로 교체
+    
+    
+    # 1. 실제 파일의 문자열 교체하기
+    # 기존 네이밍 규칙에 확장자 추가 {확장자(mod_socket_type이 INI_IBSocket일 경우 .ib, INI_PositionSocket/INI_BlendSocket/INI_TexcoordSocket일 경우 .buf, INI_TextureSocket일 경우 원래 확장자 그대로)}
+    
+    # 2. ini 내용의 문자열 교체하기
+    # 1에서 변경한 문자열로 ini 내용에 있는 파일명 문자열 교체
+    
+    scene = bpy.context.scene
+    export_parent = getattr(scene, "evbh_export_path", "") or ""
+    source_mod_path = getattr(scene, "evbh_mod_path", "") or ""
+    asset_path = getattr(scene, "evbh_asset_path", "") or ""
+
+    if not export_parent or not source_mod_path:
+        op.report({"WARNING"}, "내보내기 또는 소스 모드 경로가 설정되지 않음 - 문자열 교체 건너뜀")
+        return
+
+    export_dir = os.path.join(export_parent, os.path.basename(os.path.normpath(source_mod_path)))
+    if not os.path.isdir(export_dir):
+        op.report({"WARNING"}, f"내보내기 폴더를 찾을 수 없음: {export_dir}")
+        return
+
+    # 에셋 폴더명
+    asset_folder = os.path.basename(os.path.dirname(asset_path)) if asset_path else ""
+
+    # 수집된 매핑을 바탕으로 각 소켓별로 복사할 파일 목록(복사 대상, 복사될 새 이름, INI 파일)을 생성
+    occurrences = []
+    for entry in mappings:
+        for asset in entry.get("assets", []):
+            asset_node_name = asset.get("asset_node_name", "")
+            for mod in asset.get("mods", []):
+                orig = mod.get("mod_socket_name", "")
+                if not orig:
+                    continue
+                mod_node_name = mod.get("mod_node_name", "")
+                in_name = mod.get("asset_input_name", "")
+                sock_type = mod.get("mod_socket_type", "")
+
+                parts = (in_name or "").split("_") if in_name else []
+                if sock_type == "INI_IBSocket":
+                    tail = parts[-1] if parts else in_name
+                elif sock_type == "INI_TextureSocket":
+                    tail = "".join(parts[1:]) if len(parts) > 1 else in_name
+                else:
+                    tail = in_name
+
+                orig_base = os.path.basename(orig)
+                orig_ext = os.path.splitext(orig_base)[1]
+                if sock_type == "INI_IBSocket":
+                    ext = ".ib"
+                elif sock_type in ("INI_PositionSocket", "INI_BlendSocket", "INI_TexcoordSocket"):
+                    ext = ".buf"
+                elif sock_type == "INI_TextureSocket":
+                    ext = orig_ext or ""
+                else:
+                    ext = orig_ext or ""
+
+                new_base = f"{asset_folder}{asset_node_name}{tail}{ext}"
+
+                occurrences.append(
+                    {
+                        "mod_name": mod_node_name,
+                        "orig": orig,
+                        "orig_base": orig_base,
+                        "new_base": new_base,
+                    }
+                )
+
+    # 실제 파일 복사/이름 변경 수행
+    copied_files, rename_map, ini_replacements, originals_to_delete = _perform_file_copies(op, export_dir, occurrences)
+
+    # INI 파일들에 대해 치환 수행
+    _perform_ini_replacements(op, ini_replacements)
+
+    # 모든 복사 및 INI 치환이 끝난 뒤 원본 파일 삭제
+    deleted_count = 0
+    if 'originals_to_delete' in locals():
+        for orig_path in list(originals_to_delete):
+            try:
+                if os.path.exists(orig_path):
+                    os.remove(orig_path)
+                    deleted_count += 1
+                else:
+                    # 파일이 이미 이동/삭제된 경우 무시
+                    pass
+            except Exception as e:
+                op.report({"WARNING"}, f"원본 파일 삭제 실패: {orig_path} ({e})")
+
+    op.report({"INFO"}, f"문자열 교체 완료: 생성된 복사본 {len(copied_files)}개")
+    return
+
+
 class EVHB_OT_export_mod(Operator, ImportHelper):
     bl_idname = "evhb.export_mod"
     bl_label = "내보내기"
@@ -279,11 +464,17 @@ class EVHB_OT_export_mod(Operator, ImportHelper):
         tree = getattr(context.space_data, "node_tree", None)
         mappings = collect_result_mappings(tree)
 
+        import pprint
+        self.report({"INFO"}, f"수집된 매핑 정보:\n{pprint.pformat(mappings)}")
+
         # 그룹화
         mods_needed = group_mods_needed(mappings)
 
         # 실제 처리
         process_mods(self, export_parent, source_mod_path, mods_needed)
+
+        # 문자열 교체
+        replace_strings(self, mappings)
 
         return {"FINISHED"}
 
