@@ -4,6 +4,7 @@ from bpy.props import StringProperty
 from bpy_extras.io_utils import ImportHelper
 import os
 import shutil
+import uuid
 
 
 def select_export_path(context, path: str) -> str:
@@ -262,6 +263,7 @@ def _perform_file_copies(op, export_dir, occurrences):
     copied_files = []
     ini_replacements = {}
     originals_to_delete = set()
+    token_to_final = {}
 
     for occ in occurrences:
         mod_name = occ.get("mod_name")
@@ -284,17 +286,15 @@ def _perform_file_copies(op, export_dir, occurrences):
 
         dst_dir = os.path.dirname(expected_src)
         originals_to_delete.add(expected_src)
-        dst = os.path.join(dst_dir, desired_new)
-        if os.path.exists(dst):
-            base, ext = os.path.splitext(desired_new)
-            i = 1
-            while True:
-                candidate = f"{base}_{i}{ext}"
-                dst = os.path.join(dst_dir, candidate)
-                if not os.path.exists(dst):
-                    desired_new = candidate
-                    break
-                i += 1
+
+        # 생성할 최종 파일명(desired_new)의 확장자를 유지하면서 임시 토큰 파일명 생성
+        _, ext = os.path.splitext(desired_new)
+        token_basename = f"__EVBH_TMP_{uuid.uuid4().hex}{ext}"
+        dst = os.path.join(dst_dir, token_basename)
+        # 만약 토큰 파일명이 이미 존재하면 재생성
+        while os.path.exists(dst):
+            token_basename = f"__EVBH_TMP_{uuid.uuid4().hex}{ext}"
+            dst = os.path.join(dst_dir, token_basename)
 
         try:
             shutil.copy2(expected_src, dst)
@@ -302,18 +302,28 @@ def _perform_file_copies(op, export_dir, occurrences):
             rel_src = os.path.relpath(expected_src, export_dir).replace("\\", "/")
             rel_dst = os.path.relpath(dst, export_dir).replace("\\", "/")
             rename_map.setdefault(rel_src, []).append(rel_dst)
+            # ini에서는 원문 -> 토큰으로 치환하도록 기록 (원본basename, 토큰파일명, 최종목표이름)
+            ini_path = os.path.normpath(os.path.join(export_dir, mod_name))
+            ini_replacements.setdefault(ini_path, []).append((orig_base, token_basename, desired_new))
+            # 토큰->최종 이름 매핑 기록(나중에 토큰 파일을 최종 이름으로 변경)
+            token_to_final[token_basename] = desired_new
         except Exception as e:
             op.report({"WARNING"}, f"소켓별 파일 복사 실패: {expected_src} -> {dst} ({e})")
             continue
 
-        ini_path = os.path.normpath(os.path.join(export_dir, mod_name))
-        ini_replacements.setdefault(ini_path, []).append((orig_base, desired_new))
-
-    return copied_files, rename_map, ini_replacements, originals_to_delete
+    return copied_files, rename_map, ini_replacements, originals_to_delete, token_to_final
 
 
 def _perform_ini_replacements(op, ini_replacements):
-    """INI 파일들에 대해 순차적 치환을 수행한다."""
+    """INI 파일들에 대해 순차적 치환을 수행한다.
+
+    추가 기능:
+    - 섹션명 치환: 예약어(TextureOverride/Resource/Key/ShaderOverride/CommandList)+파일명(확장자 제외)
+      형태의 섹션명을 원문->토큰->최종 문자열 순으로 치환하여 중복을 방지한다.
+    - 파일명 치환도 원문->토큰->최종 문자열 순으로 수행하며, 기존 동작(각 치환은 다음 미치환 항목에 대해서만 적용)을 유지한다.
+    """
+    KEYWORDS = ("TextureOverride", "Resource", "Key", "ShaderOverride", "CommandList")
+
     for ini_path, repls in ini_replacements.items():
         if not os.path.exists(ini_path):
             continue
@@ -323,17 +333,92 @@ def _perform_ini_replacements(op, ini_replacements):
         except Exception:
             continue
 
-        for orig_base, new_base in repls:
+        token_map = {}
+
+        # 1) 섹션명 원문 -> 토큰 (글로벌 치환)
+
+        # repls now contain tuples: (orig_base, token_basename, desired_new)
+        for orig_base, token_basename, desired_new in repls:
+            orig_noext = os.path.splitext(orig_base)[0]
+            new_noext = os.path.splitext(desired_new)[0]
+            for kw in KEYWORDS:
+                orig_sec = f"{kw}{orig_noext}"
+                new_sec = f"{kw}{new_noext}"
+                if orig_sec == new_sec:
+                    continue
+                if orig_sec in data:
+                    tok = f"__EVBH_SEC_TOKEN_{uuid.uuid4().hex}__"
+                    data = data.replace(orig_sec, tok)
+                    token_map[tok] = new_sec
+
+        # 2) 파일명(원문) -> 토큰 (각 치환은 다음 미치환 항목에 대해서만 적용)
+        for orig_base, token_basename, desired_new in repls:
             idx = data.find(orig_base)
             if idx == -1:
                 continue
-            data = data[:idx] + data[idx:].replace(orig_base, new_base, 1)
+            tok = f"__EVBH_FILE_TOKEN_{uuid.uuid4().hex}__"
+            data = data[:idx] + data[idx:].replace(orig_base, tok, 1)
+            # 파일 토큰은 나중에 토큰_basename으로 바뀌고, 최종적으로 _finalize_file_names에서 최종명으로 바뀜
+            token_map[tok] = token_basename
+
+        # 3) 모든 토큰 -> 최종 문자열
+        for tok, final in token_map.items():
+            data = data.replace(tok, final)
 
         try:
             with open(ini_path, "w", encoding="utf-8") as f:
                 f.write(data)
         except Exception as e:
             op.report({"WARNING"}, f"INI 파일 쓰기 실패: {ini_path} ({e})")
+
+
+def _finalize_file_names(op, export_dir, token_to_final, ini_paths):
+    """토큰화된 파일명을 최종 네이밍으로 변경하고, 해당 INI 파일들 안의 토큰도 최종명으로 교체한다."""
+    renamed = []
+    for token_basename, final_basename in token_to_final.items():
+        # 토큰 파일 전체 경로 찾기
+        found = None
+        for root, dirs, files in os.walk(export_dir):
+            if token_basename in files:
+                found = os.path.join(root, token_basename)
+                break
+        if not found:
+            op.report({"WARNING"}, f"토큰 파일을 찾지 못함: {token_basename}")
+            continue
+
+        final_path = os.path.join(os.path.dirname(found), final_basename)
+        base, ext = os.path.splitext(final_basename)
+        i = 1
+        while os.path.exists(final_path):
+            candidate = f"{base}_{i}{ext}"
+            final_path = os.path.join(os.path.dirname(found), candidate)
+            i += 1
+
+        try:
+            os.replace(found, final_path)
+            renamed.append((found, final_path))
+        except Exception as e:
+            op.report({"WARNING"}, f"토큰 파일 이름 변경 실패: {found} -> {final_path} ({e})")
+            continue
+
+        # 해당 INI 파일들 내부의 토큰 문자열을 최종명으로 교체
+        for ini_path in ini_paths:
+            if not os.path.exists(ini_path):
+                continue
+            try:
+                with open(ini_path, "r", encoding="utf-8") as f:
+                    txt = f.read()
+            except Exception:
+                continue
+            if token_basename in txt:
+                txt = txt.replace(token_basename, os.path.basename(final_path))
+                try:
+                    with open(ini_path, "w", encoding="utf-8") as f:
+                        f.write(txt)
+                except Exception as e:
+                    op.report({"WARNING"}, f"INI 파일 최종명 치환 실패: {ini_path} ({e})")
+
+    return renamed
 
 
 
@@ -410,13 +495,10 @@ def replace_strings(op, mappings):
                     }
                 )
 
-    # 실제 파일 복사/이름 변경 수행
-    copied_files, rename_map, ini_replacements, originals_to_delete = _perform_file_copies(op, export_dir, occurrences)
+    # 실제 파일 복사(토큰화) 수행
+    copied_files, rename_map, ini_replacements, originals_to_delete, token_to_final = _perform_file_copies(op, export_dir, occurrences)
 
-    # INI 파일들에 대해 치환 수행
-    _perform_ini_replacements(op, ini_replacements)
-
-    # 모든 복사 및 INI 치환이 끝난 뒤 원본 파일 삭제
+    # 토큰으로 복사한 후 원본 파일 삭제(요청된 순서)
     deleted_count = 0
     if 'originals_to_delete' in locals():
         for orig_path in list(originals_to_delete):
@@ -425,12 +507,18 @@ def replace_strings(op, mappings):
                     os.remove(orig_path)
                     deleted_count += 1
                 else:
-                    # 파일이 이미 이동/삭제된 경우 무시
                     pass
             except Exception as e:
                 op.report({"WARNING"}, f"원본 파일 삭제 실패: {orig_path} ({e})")
 
-    op.report({"INFO"}, f"문자열 교체 완료: 생성된 복사본 {len(copied_files)}개")
+    # INI 파일들에 대해 토큰 기반 치환 수행 (원문 -> 토큰)
+    _perform_ini_replacements(op, ini_replacements)
+
+    # 토큰 파일명을 최종 이름으로 변경하고 INI 내부 토큰도 최종명으로 교체
+    ini_paths = list(ini_replacements.keys())
+    renamed = _finalize_file_names(op, export_dir, token_to_final, ini_paths)
+
+    op.report({"INFO"}, f"문자열 교체 완료: 생성된 복사본 {len(copied_files)}개, 삭제된 원본 {deleted_count}개, 최종 이름 변경 {len(renamed)}개")
     return
 
 
