@@ -32,7 +32,7 @@ class OT_CheckUpdate(Operator):
                 latest_version = data.get("tag_name", "").lstrip("v")
                 context.scene["latest_version"] = latest_version
                 # 현재 버전 가져오기
-                from .. import bl_info
+                from ... import bl_info
 
                 current_version = ".".join(map(str, bl_info["version"]))
                 context.scene["current_version"] = current_version
