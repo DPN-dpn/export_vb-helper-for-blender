@@ -87,7 +87,25 @@ class EVHB_OT_auto_link(Operator):
         return {"FINISHED"}
 
 
-classes = (EVHB_OT_auto_link,)
+class EVHB_OT_unlink(Operator):
+    bl_idname = "evhb.unlink"
+    bl_label = "링크 해제"
+    bl_description = "노드 트리의 모든 링크를 해제합니다"
+
+    def execute(self, context):
+        node_tree = getattr(context.space_data, "node_tree", None) or getattr(context.area, "spaces", None) and getattr(context.area.spaces.active, "node_tree", None)
+        if node_tree is None:
+            self.report({"WARNING"}, "No node tree open")
+            return {"CANCELLED"}
+
+        links_removed = len(node_tree.links)
+        node_tree.links.clear()
+
+        self.report({"INFO"}, f"링크 해제: {links_removed}개 링크가 제거되었습니다")
+        return {"FINISHED"}
+
+
+classes = (EVHB_OT_auto_link, EVHB_OT_unlink)
 
 
 def register():

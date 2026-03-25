@@ -65,9 +65,15 @@ def _custom_node_header_draw(self, context):
 
     # 자동 연결/내보내기
     row2 = row.row(align=True)
-    row2.enabled = bool(getattr(context.space_data, "node_tree", None))
+    nt = getattr(context.space_data, "node_tree", None)
+    row2.enabled = bool(nt)
     row2.operator("evhb.auto_link", text="", icon="GP_ONLY_SELECTED")
-    row2.operator("evhb.export_mod", text="", icon="EXPORT")
+    row3 = row.row(align=True)
+    row3.enabled = bool(nt and len(getattr(nt, "links", ())) > 0)
+    row3.operator("evhb.unlink", text="", icon="GP_SELECT_POINTS")
+    row4 = row.row(align=True)
+    row4.enabled = bool(nt)
+    row4.operator("evhb.export_mod", text="", icon="EXPORT")
 
     row.separator()
 
