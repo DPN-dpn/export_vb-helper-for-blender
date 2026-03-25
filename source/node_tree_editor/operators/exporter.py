@@ -5,6 +5,7 @@ from bpy_extras.io_utils import ImportHelper
 import os
 import shutil
 import uuid
+from .postprocessor import postprocess_ini
 
 
 def select_export_path(context, path: str) -> str:
@@ -421,20 +422,12 @@ def _finalize_file_names(op, export_dir, token_to_final, ini_paths):
     return renamed
 
 
-
 def replace_strings(op, mappings):
     # 내보내기로 복사된 파일에서 매핑 정보를 바탕으로 문자열교체함
     # {evbh_asset_path의 폴더명}{asset_node_name}{asset_input_name(mod_socket_type이 INI_IBSocket일 경우 _로 분리한 뒷 문자(예: IB_A가 원문이면 A), INI_TextureSocket일 경우 _로 분리한 뒷 문자들 연결(예: IB_A_Diffuse가 원문이면 ADiffuse), 둘 다 아니면 그냥 asset_input_name)}
     # evbh_asset_path는 파일경로이므로 파일명이 아닌 폴더명으로 하는 것에 주의
     # 이후 문자열 교체 과정은 문자열의 의도치 않은 중복을 방지하기 위해 원문->임시토큰->최종문자열 순으로 교체
-    
-    
-    # 1. 실제 파일의 문자열 교체하기
-    # 기존 네이밍 규칙에 확장자 추가 {확장자(mod_socket_type이 INI_IBSocket일 경우 .ib, INI_PositionSocket/INI_BlendSocket/INI_TexcoordSocket일 경우 .buf, INI_TextureSocket일 경우 원래 확장자 그대로)}
-    
-    # 2. ini 내용의 문자열 교체하기
-    # 1에서 변경한 문자열로 ini 내용에 있는 파일명 문자열 교체
-    
+
     scene = bpy.context.scene
     export_parent = getattr(scene, "evbh_export_path", "") or ""
     source_mod_path = getattr(scene, "evbh_mod_path", "") or ""
@@ -521,7 +514,6 @@ def replace_strings(op, mappings):
     op.report({"INFO"}, f"문자열 교체 완료: 생성된 복사본 {len(copied_files)}개, 삭제된 원본 {deleted_count}개, 최종 이름 변경 {len(renamed)}개")
     return
 
-
 class EVHB_OT_export_mod(Operator, ImportHelper):
     bl_idname = "evhb.export_mod"
     bl_label = "내보내기"
@@ -563,6 +555,9 @@ class EVHB_OT_export_mod(Operator, ImportHelper):
 
         # 문자열 교체
         replace_strings(self, mappings)
+
+        # ini 후처리
+        postprocess_ini(self)
 
         return {"FINISHED"}
 
