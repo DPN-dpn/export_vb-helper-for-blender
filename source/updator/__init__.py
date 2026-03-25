@@ -1,6 +1,11 @@
+from . import operators, panel
+
+
 def register():
-    pass
+    operators.register()
+    panel.register()
 
 
 def unregister():
-    pass
+    panel.unregister()
+    operators.unregister()

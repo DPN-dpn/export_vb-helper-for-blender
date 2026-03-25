@@ -1,0 +1,143 @@
+import bpy
+from bpy.types import Operator
+import urllib.request
+import json
+import os
+import urllib.request
+import zipfile
+import shutil
+
+
+def redraw_ui_regions(context):
+    # 패널 강제 새로고침
+    for window in context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == "NODE_EDITOR":
+                for region in area.regions:
+                    if region.type == "UI":
+                        region.tag_redraw()
+
+
+# 업데이트 체크
+class OT_CheckUpdate(Operator):
+    bl_idname = "updater.check_update"
+    bl_label = "업데이트 체크"
+    bl_description = "최신 버전이 있는지 확인합니다"
+
+    def execute(self, context):
+        try:
+            url = "https://api.github.com/repos/DPN-dpn/export_vb-helper-for-blender/releases/latest"
+            with urllib.request.urlopen(url, timeout=5) as response:
+                data = json.loads(response.read().decode())
+                latest_version = data.get("tag_name", "").lstrip("v")
+                context.scene["latest_version"] = latest_version
+                # 현재 버전 가져오기
+                from .. import bl_info
+
+                current_version = ".".join(map(str, bl_info["version"]))
+                context.scene["current_version"] = current_version
+                context.scene["show_restart"] = False
+                if latest_version and latest_version != current_version:
+                    context.scene["update_available"] = True
+                    self.report(
+                        {"INFO"}, f"업데이트 가능: {current_version} → {latest_version}"
+                    )
+                else:
+                    context.scene["update_available"] = False
+                    self.report({"INFO"}, "최신 버전입니다.")
+        except Exception as e:
+            context.scene["update_available"] = False
+            self.report({"ERROR"}, f"업데이트 확인 실패: {e}")
+
+        redraw_ui_regions(context)
+        return {"FINISHED"}
+
+
+# 업데이트 실행
+class OT_DoUpdate(Operator):
+    bl_idname = "updater.do_update"
+    bl_label = "업데이트"
+    bl_description = "애드온을 최신 버전으로 업데이트합니다"
+
+    def execute(self, context):
+        try:
+            # 최신 릴리스 정보 가져오기
+            url = "https://api.github.com/repos/DPN-dpn/export_vb-helper-for-blender/releases/latest"
+            with urllib.request.urlopen(url, timeout=5) as response:
+                data = json.loads(response.read().decode())
+                assets = data.get("assets", [])
+                zip_url = ""
+                for asset in assets:
+                    if asset["name"].endswith(".zip"):
+                        zip_url = asset["browser_download_url"]
+                        break
+                if not zip_url:
+                    self.report({"ERROR"}, "릴리스 zip 파일을 찾을 수 없습니다.")
+                    return {"CANCELLED"}
+
+            # 다운로드 경로 설정
+            addon_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            addons_dir = os.path.dirname(addon_dir)
+            zip_path = os.path.join(addons_dir, "export_vb-helper-for-blender_update.zip")
+
+            # zip 파일 다운로드
+            urllib.request.urlretrieve(zip_url, zip_path)
+
+            # 폴더 삭제
+            for filename in os.listdir(addon_dir):
+                file_path = os.path.join(addon_dir, filename)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.remove(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    self.report({"ERROR"}, f"{file_path} 폴더를 비우지 못했습니다.")
+
+            # zip 파일 압축 해제 (애드온 폴더에 덮어쓰기)
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(addons_dir)
+
+            # zip 파일 삭제
+            os.remove(zip_path)
+
+            self.report({"WARNING"}, "블렌더를 재시작해, 애드온을 새로고침해 주세요.")
+            context.scene["show_restart"] = True
+            redraw_ui_regions(context)
+            return {"FINISHED"}
+
+        except Exception as e:
+            self.report({"ERROR"}, f"업데이트 실패: {e}")
+            context.scene["show_restart"] = False
+            return {"CANCELLED"}
+
+
+# GitHub 이동
+class OT_OpenGithub(Operator):
+    bl_idname = "updater.open_github"
+    bl_label = "GitHub"
+    bl_description = "애드온의 GitHub 페이지를 엽니다"
+
+    def execute(self, context):
+        import webbrowser
+
+        webbrowser.open("https://github.com/DPN-dpn/export_vb-helper-for-blender")
+        self.report({"INFO"}, "export_vb-helper-for-blender GitHub 페이지를 엽니다.")
+        return {"FINISHED"}
+
+
+classes = (
+    OT_CheckUpdate,
+    OT_DoUpdate,
+    OT_OpenGithub,
+)
+
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)

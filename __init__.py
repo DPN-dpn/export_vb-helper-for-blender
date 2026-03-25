@@ -15,18 +15,18 @@ from .source import node_tree_editor, prep, text_editor, updator
 
 # 애드온 등록 함수
 def register():
+    prep.register()
     updator.register()
     node_tree_editor.register()
-    prep.register()
     text_editor.register()
 
 
 # 애드온 해제 함수
 def unregister():
     text_editor.unregister()
-    prep.unregister()
     node_tree_editor.unregister()
     updator.unregister()
+    prep.unregister()
 
 
 # 스크립트 직접 실행 시 등록
