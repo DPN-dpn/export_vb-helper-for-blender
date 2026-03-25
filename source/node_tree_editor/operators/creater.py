@@ -4,7 +4,7 @@ from bpy.props import StringProperty
 import json
 import re
 from ...data import text_data_block
-from ...prep import properties as prep_properties
+from ...core import properties as prep_properties
 
 
 def _find_first_node_editor_space(context):
@@ -89,7 +89,7 @@ def _create_asset_nodes(op, tree):
                     sock["hash"] = str(ib_hint)
                 except Exception:
                     pass
-                
+
             socket_count += _create_asset_texture_sockets(node, comp)
 
             node.location = (x, y)
@@ -97,6 +97,7 @@ def _create_asset_nodes(op, tree):
             created_count += 1
 
     op.report({"INFO"}, f"생성된 에셋 노드 수: {created_count}")
+
 
 def _create_asset_texture_sockets(node, comp):
     texture_count = 0
@@ -138,7 +139,11 @@ def _create_asset_texture_sockets(node, comp):
                 except Exception:
                     saved = []
                 saved.append(
-                    {"is_output": False, "name": socket_label, "hash": str(hv) if hv else None}
+                    {
+                        "is_output": False,
+                        "name": socket_label,
+                        "hash": str(hv) if hv else None,
+                    }
                 )
                 try:
                     node[key] = saved
@@ -158,6 +163,7 @@ def _create_asset_texture_sockets(node, comp):
                 continue
 
     return texture_count
+
 
 def _create_mod_nodes(op, tree):
     mod_blocks = getattr(text_data_block, "_mod_text_blocks", set())
@@ -413,7 +419,7 @@ class EVHB_OT_create_new_tree(Operator):
 
     bl_idname = "evhb.create_new_tree"
     bl_label = "슬롯 매칭 시작하기"
-    bl_description = "불러온 에셋/모드 파일로 슬롯 매칭을 시작합니다."
+    bl_description = "불러온 에셋/모드 파일로 슬롯 매칭을 시작합니다"
 
     name: StringProperty(name="Name", default="EVBH Graph")
 

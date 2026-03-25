@@ -17,7 +17,7 @@ def read_file_text(path: str) -> str:
 class EVHB_OT_select_asset(Operator, ImportHelper):
     bl_idname = "evhb.select_asset"
     bl_label = "hash.json 선택"
-    bl_description = "에셋 hash.json 파일을 선택하세요."
+    bl_description = "에셋 hash.json 파일을 선택하세요"
 
     filename_ext = ".json"
     filter_glob: StringProperty(default="*.json", options={"HIDDEN"})
@@ -38,7 +38,7 @@ class EVHB_OT_select_asset(Operator, ImportHelper):
 class EVHB_OT_select_mod(Operator, ImportHelper):
     bl_idname = "evhb.select_mod"
     bl_label = "모드 폴더 선택"
-    bl_description = "모드 폴더를 선택하세요."
+    bl_description = "모드 폴더를 선택하세요"
 
     filename_ext = ""
     filter_glob: StringProperty(default="", options={"HIDDEN"})
@@ -96,7 +96,7 @@ class EVHB_OT_select_mod(Operator, ImportHelper):
 class EVHB_OT_unlink_asset(Operator):
     bl_idname = "evhb.unlink_asset"
     bl_label = "언링크 에셋"
-    bl_description = "불러온 에셋 텍스트 블록을 삭제하고 경로를 지웁니다."
+    bl_description = "불러온 에셋 텍스트 블록을 삭제하고 경로를 지웁니다"
 
     def execute(self, context):
         text_data_block.clear_text_blocks("ASSET")
@@ -108,7 +108,7 @@ class EVHB_OT_unlink_asset(Operator):
 class EVHB_OT_unlink_mod(Operator):
     bl_idname = "evhb.unlink_mod"
     bl_label = "언링크 모드"
-    bl_description = "불러온 모드 텍스트 블록들을 삭제하고 경로를 지웁니다."
+    bl_description = "불러온 모드 텍스트 블록들을 삭제하고 경로를 지웁니다"
 
     def execute(self, context):
         text_data_block.clear_text_blocks("MOD")

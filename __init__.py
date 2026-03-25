@@ -10,23 +10,25 @@ bl_info = {
 }
 
 # 라이브러리 임포트
-from .source import node_tree_editor, prep, text_editor, updator
+from .source import node_tree_editor, core, text_editor, updator, addon
 
 
 # 애드온 등록 함수
 def register():
-    prep.register()
+    core.register()
     updator.register()
     node_tree_editor.register()
     text_editor.register()
+    addon.register()
 
 
 # 애드온 해제 함수
 def unregister():
+    addon.unregister()
     text_editor.unregister()
     node_tree_editor.unregister()
     updator.unregister()
-    prep.unregister()
+    core.unregister()
 
 
 # 스크립트 직접 실행 시 등록
