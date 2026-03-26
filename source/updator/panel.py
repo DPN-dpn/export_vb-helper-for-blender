@@ -10,7 +10,6 @@ class PT_Updater(Panel):
     bl_space_type = "NODE_EDITOR"
     bl_region_type = "UI"
     bl_category = "엵툵 사전작업"
-    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         layout = self.layout

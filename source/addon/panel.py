@@ -12,11 +12,11 @@ class PREP_ADDON(Panel):
 
     def draw(self, context):
         layout = self.layout
+        prefs = bpy.context.preferences.addons[addon_module_name()].preferences
 
-        layout.prop(
-            bpy.context.preferences.addons[addon_module_name()].preferences,
-            "evbh_export_vb",
-        )
+        layout.prop(prefs, "evbh_export_vb")
+        if prefs.evbh_export_vb:
+            layout.prop(prefs, "evbh_export_vb_use")
 
 
 def register():

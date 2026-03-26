@@ -1,5 +1,5 @@
 import bpy
-from bpy.props import StringProperty
+from bpy.props import StringProperty, BoolProperty
 from .properties import prop_update
 
 
@@ -21,9 +21,17 @@ class EVBHPreferences(bpy.types.AddonPreferences):
         description="export_vb.py",
     )
 
+    evbh_export_vb_use: BoolProperty(
+        name="엵툵으로 내보내기",
+        default=True,
+        description="엵툵으로 내보내기",
+    )
+
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "evbh_export_vb")
+        if self.evbh_export_vb:
+            layout.prop(self, "evbh_export_vb_use")
 
 
 classes = (EVBHPreferences,)
@@ -36,12 +44,18 @@ def register():
         subtype="FILE_PATH",
         update=prop_update,
     )
+    bpy.types.Scene.evbh_export_vb_use = BoolProperty(
+        name="엵툵으로 내보내기",
+        default=True,
+        update=prop_update,
+    )
 
     for cls in classes:
         bpy.utils.register_class(cls)
 
 
 def unregister():
+    del bpy.types.Scene.evbh_export_vb_use
     del bpy.types.Scene.evbh_export_vb
 
     for cls in reversed(classes):

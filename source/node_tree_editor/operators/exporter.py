@@ -104,7 +104,11 @@ def collect_result_mappings(node_tree):
                             getattr(mod_socket, "name", "") if mod_socket else ""
                         ),
                         "mod_socket_type": (
-                            getattr(getattr(mod_socket, "__class__", None), "bl_idname", "") if mod_socket else ""
+                            getattr(
+                                getattr(mod_socket, "__class__", None), "bl_idname", ""
+                            )
+                            if mod_socket
+                            else ""
                         ),
                         "mod_socket_hash": (
                             mod_socket.get("hash", "")
@@ -272,7 +276,9 @@ def _perform_file_copies(op, export_dir, occurrences):
         orig_base = occ.get("orig_base")
         desired_new = occ.get("new_base")
 
-        expected_src = os.path.normpath(os.path.join(export_dir, os.path.dirname(mod_name), orig))
+        expected_src = os.path.normpath(
+            os.path.join(export_dir, os.path.dirname(mod_name), orig)
+        )
         if not os.path.exists(expected_src):
             found = None
             for root, dirs, files in os.walk(export_dir):
@@ -282,7 +288,10 @@ def _perform_file_copies(op, export_dir, occurrences):
             if found:
                 expected_src = found
             else:
-                op.report({"WARNING"}, f"복사할 원본 파일을 찾지 못함: {orig} (mod: {mod_name})")
+                op.report(
+                    {"WARNING"},
+                    f"복사할 원본 파일을 찾지 못함: {orig} (mod: {mod_name})",
+                )
                 continue
 
         dst_dir = os.path.dirname(expected_src)
@@ -305,14 +314,24 @@ def _perform_file_copies(op, export_dir, occurrences):
             rename_map.setdefault(rel_src, []).append(rel_dst)
             # ini에서는 원문 -> 토큰으로 치환하도록 기록 (원본basename, 토큰파일명, 최종목표이름)
             ini_path = os.path.normpath(os.path.join(export_dir, mod_name))
-            ini_replacements.setdefault(ini_path, []).append((orig_base, token_basename, desired_new))
+            ini_replacements.setdefault(ini_path, []).append(
+                (orig_base, token_basename, desired_new)
+            )
             # 토큰->최종 이름 매핑 기록(나중에 토큰 파일을 최종 이름으로 변경)
             token_to_final[token_basename] = desired_new
         except Exception as e:
-            op.report({"WARNING"}, f"소켓별 파일 복사 실패: {expected_src} -> {dst} ({e})")
+            op.report(
+                {"WARNING"}, f"소켓별 파일 복사 실패: {expected_src} -> {dst} ({e})"
+            )
             continue
 
-    return copied_files, rename_map, ini_replacements, originals_to_delete, token_to_final
+    return (
+        copied_files,
+        rename_map,
+        ini_replacements,
+        originals_to_delete,
+        token_to_final,
+    )
 
 
 def _perform_ini_replacements(op, ini_replacements):
@@ -399,7 +418,9 @@ def _finalize_file_names(op, export_dir, token_to_final, ini_paths):
             os.replace(found, final_path)
             renamed.append((found, final_path))
         except Exception as e:
-            op.report({"WARNING"}, f"토큰 파일 이름 변경 실패: {found} -> {final_path} ({e})")
+            op.report(
+                {"WARNING"}, f"토큰 파일 이름 변경 실패: {found} -> {final_path} ({e})"
+            )
             continue
 
         # 해당 INI 파일들 내부의 토큰 문자열을 최종명으로 교체
@@ -417,7 +438,9 @@ def _finalize_file_names(op, export_dir, token_to_final, ini_paths):
                     with open(ini_path, "w", encoding="utf-8") as f:
                         f.write(txt)
                 except Exception as e:
-                    op.report({"WARNING"}, f"INI 파일 최종명 치환 실패: {ini_path} ({e})")
+                    op.report(
+                        {"WARNING"}, f"INI 파일 최종명 치환 실패: {ini_path} ({e})"
+                    )
 
     return renamed
 
@@ -434,10 +457,15 @@ def replace_strings(op, mappings):
     asset_path = getattr(scene, "evbh_asset_path", "") or ""
 
     if not export_parent or not source_mod_path:
-        op.report({"WARNING"}, "내보내기 또는 소스 모드 경로가 설정되지 않음 - 문자열 교체 건너뜀")
+        op.report(
+            {"WARNING"},
+            "내보내기 또는 소스 모드 경로가 설정되지 않음 - 문자열 교체 건너뜀",
+        )
         return
 
-    export_dir = os.path.join(export_parent, os.path.basename(os.path.normpath(source_mod_path)))
+    export_dir = os.path.join(
+        export_parent, os.path.basename(os.path.normpath(source_mod_path))
+    )
     if not os.path.isdir(export_dir):
         op.report({"WARNING"}, f"내보내기 폴더를 찾을 수 없음: {export_dir}")
         return
@@ -470,7 +498,11 @@ def replace_strings(op, mappings):
                 orig_ext = os.path.splitext(orig_base)[1]
                 if sock_type == "INI_IBSocket":
                     ext = ".ib"
-                elif sock_type in ("INI_PositionSocket", "INI_BlendSocket", "INI_TexcoordSocket"):
+                elif sock_type in (
+                    "INI_PositionSocket",
+                    "INI_BlendSocket",
+                    "INI_TexcoordSocket",
+                ):
                     ext = ".buf"
                 elif sock_type == "INI_TextureSocket":
                     ext = orig_ext or ""
@@ -489,11 +521,13 @@ def replace_strings(op, mappings):
                 )
 
     # 실제 파일 복사(토큰화) 수행
-    copied_files, rename_map, ini_replacements, originals_to_delete, token_to_final = _perform_file_copies(op, export_dir, occurrences)
+    copied_files, rename_map, ini_replacements, originals_to_delete, token_to_final = (
+        _perform_file_copies(op, export_dir, occurrences)
+    )
 
     # 토큰으로 복사한 후 원본 파일 삭제(요청된 순서)
     deleted_count = 0
-    if 'originals_to_delete' in locals():
+    if "originals_to_delete" in locals():
         for orig_path in list(originals_to_delete):
             try:
                 if os.path.exists(orig_path):
@@ -511,8 +545,165 @@ def replace_strings(op, mappings):
     ini_paths = list(ini_replacements.keys())
     renamed = _finalize_file_names(op, export_dir, token_to_final, ini_paths)
 
-    op.report({"INFO"}, f"문자열 교체 완료: 생성된 복사본 {len(copied_files)}개, 삭제된 원본 {deleted_count}개, 최종 이름 변경 {len(renamed)}개")
+    op.report(
+        {"INFO"},
+        f"문자열 교체 완료: 생성된 복사본 {len(copied_files)}개, 삭제된 원본 {deleted_count}개, 최종 이름 변경 {len(renamed)}개",
+    )
     return
+
+
+def run_export_vb(op, export_vb_path):
+    # evbh_asset_path의 폴더를 asset으로, 내보내진 폴더를 mods로 하여 export_vb.py를 실행함.
+    # export_vb.py는 export_vb_path이므로 바로 실행하면 되는데, 참고를 위해 프로젝트에 export_vb폴더를 첨부함. 폴더 내부의 export_vb.py가 해당 코드임.
+    # export_vb.py를 실행하면 output폴더에 결과 폴더가 생성되는데, 해당 폴더를 내보내기 경로로 이동함.
+    # 간략하게 설명하자면
+    # 1. export_vb_path의 폴더에 asset폴더에 evbh_asset_path의 폴더를 복사
+    # 2. export_vb_path의 폴더에 mods폴더에 내보내진 폴더를 이동
+    # 3. export_vb.py를 실행하여 output 폴더에 결과 생성
+    # 4. output 폴더의 결과를 내보내기 경로로 이동
+    import subprocess
+    import sys
+
+    scene = bpy.context.scene
+    export_parent = getattr(scene, "evbh_export_path", "") or ""
+    source_mod_path = getattr(scene, "evbh_mod_path", "") or ""
+    asset_path = getattr(scene, "evbh_asset_path", "") or ""
+
+    if not export_vb_path:
+        op.report({"WARNING"}, "export_vb 경로가 설정되지 않음")
+        return
+
+    # export_vb_path가 파일이면 디렉터리로, 폴더이면 그대로 사용
+    if os.path.isfile(export_vb_path):
+        base_dir = os.path.dirname(os.path.normpath(export_vb_path))
+        script_path = os.path.normpath(export_vb_path)
+    else:
+        base_dir = os.path.normpath(export_vb_path)
+        script_path = os.path.join(base_dir, "export_vb.py")
+
+    if not os.path.isdir(base_dir):
+        op.report({"WARNING"}, f"export_vb 폴더를 찾을 수 없음: {base_dir}")
+        return
+
+    if not os.path.isfile(script_path):
+        op.report({"WARNING"}, f"export_vb.py를 찾지 못함: {script_path}")
+        return
+
+    if not export_parent:
+        op.report(
+            {"WARNING"}, "내보내기 대상 경로(evbh_export_path)가 설정되지 않았습니다"
+        )
+        return
+
+    # 복사할 asset 폴더 결정
+    if not asset_path:
+        op.report({"WARNING"}, "에셋 경로(evbh_asset_path)가 설정되지 않았습니다")
+        return
+
+    if os.path.isdir(asset_path):
+        asset_src_dir = os.path.normpath(asset_path)
+    elif os.path.isfile(asset_path):
+        asset_src_dir = os.path.dirname(os.path.normpath(asset_path))
+    else:
+        op.report({"WARNING"}, f"에셋 경로를 찾을 수 없음: {asset_path}")
+        return
+
+    # 내보내진(처리된) 모드 폴더 (process_mods가 생성한 폴더)
+    if not source_mod_path:
+        op.report({"WARNING"}, "소스 모드 경로(evbh_mod_path)가 설정되지 않았습니다")
+        return
+
+    exported_mod_folder = os.path.join(
+        export_parent, os.path.basename(os.path.normpath(source_mod_path))
+    )
+    if not os.path.exists(exported_mod_folder):
+        op.report(
+            {"WARNING"}, f"내보내진 모드 폴더를 찾을 수 없음: {exported_mod_folder}"
+        )
+        return
+
+    created_paths = []
+    moved_mod_back = False
+
+    try:
+        # 1) asset 복사
+        dest_asset_root = os.path.join(base_dir, "asset")
+        os.makedirs(dest_asset_root, exist_ok=True)
+        dest_asset_sub = os.path.join(dest_asset_root, os.path.basename(asset_src_dir))
+        if os.path.exists(dest_asset_sub):
+            shutil.rmtree(dest_asset_sub)
+        shutil.copytree(asset_src_dir, dest_asset_sub)
+        created_paths.append(dest_asset_sub)
+
+        # 2) mods로 내보내진 폴더 이동
+        dest_mods_root = os.path.join(base_dir, "mods")
+        os.makedirs(dest_mods_root, exist_ok=True)
+        dest_mod = os.path.join(dest_mods_root, os.path.basename(exported_mod_folder))
+        if os.path.exists(dest_mod):
+            if os.path.isdir(dest_mod):
+                shutil.rmtree(dest_mod)
+            else:
+                os.remove(dest_mod)
+        shutil.move(exported_mod_folder, dest_mod)
+
+        # 3) export_vb.py 실행
+        try:
+            result = subprocess.run(
+                [sys.executable, script_path],
+                cwd=base_dir,
+                capture_output=True,
+                text=True,
+                encoding="mbcs",
+                errors="replace",
+                timeout=300,
+            )
+            if result.returncode != 0:
+                op.report({"WARNING"}, f"export_vb 실행 실패: rc={result.returncode}")
+                op.report({"INFO"}, result.stdout or "")
+                op.report({"INFO"}, result.stderr or "")
+        except Exception as e:
+            op.report({"WARNING"}, f"export_vb 실행 중 예외: {e}")
+
+        # 4) output 폴더의 결과를 내보내기 경로로 이동
+        output_dir = os.path.join(base_dir, "output")
+        if os.path.isdir(output_dir):
+            for name in os.listdir(output_dir):
+                src = os.path.join(output_dir, name)
+                dst = os.path.join(export_parent, name)
+                # 덮어쓰기: 기존이 있으면 제거
+                try:
+                    if os.path.exists(dst):
+                        if os.path.isdir(dst):
+                            shutil.rmtree(dst)
+                        else:
+                            os.remove(dst)
+                    shutil.move(src, dst)
+                except Exception as e:
+                    op.report({"WARNING"}, f"output 이동 실패: {src} -> {dst} ({e})")
+        else:
+            op.report({"WARNING"}, f"output 폴더를 찾지 못함: {output_dir}")
+
+    finally:
+        # 정리: 생성한 복사본 제거
+        for p in created_paths:
+            try:
+                if os.path.isdir(p):
+                    shutil.rmtree(p)
+                elif os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
+        try:
+            if os.path.exists(dest_mod):
+                if os.path.isdir(dest_mod):
+                    shutil.rmtree(dest_mod)
+                else:
+                    os.remove(dest_mod)
+        except Exception:
+            pass
+
+    op.report({"INFO"}, "export_vb 처리 완료")
+
 
 class EVHB_OT_export_mod(Operator, ImportHelper):
     bl_idname = "evhb.export_mod"
@@ -544,9 +735,6 @@ class EVHB_OT_export_mod(Operator, ImportHelper):
         tree = getattr(context.space_data, "node_tree", None)
         mappings = collect_result_mappings(tree)
 
-        import pprint
-        self.report({"INFO"}, f"수집된 매핑 정보:\n{pprint.pformat(mappings)}")
-
         # 그룹화
         mods_needed = group_mods_needed(mappings)
 
@@ -558,6 +746,12 @@ class EVHB_OT_export_mod(Operator, ImportHelper):
 
         # ini 후처리
         postprocess_ini(self)
+
+        from ...core.preferences import addon_module_name
+
+        prefs = bpy.context.preferences.addons[addon_module_name()].preferences
+        if prefs.evbh_export_vb_use and prefs.evbh_export_vb:
+            run_export_vb(self, prefs.evbh_export_vb)
 
         return {"FINISHED"}
 

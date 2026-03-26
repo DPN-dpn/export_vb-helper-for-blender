@@ -16,18 +16,18 @@ from .source import node_tree_editor, core, text_editor, updator, addon
 # 애드온 등록 함수
 def register():
     core.register()
+    addon.register()
     updator.register()
     node_tree_editor.register()
     text_editor.register()
-    addon.register()
 
 
 # 애드온 해제 함수
 def unregister():
-    addon.unregister()
     text_editor.unregister()
     node_tree_editor.unregister()
     updator.unregister()
+    addon.unregister()
     core.unregister()
 
 
