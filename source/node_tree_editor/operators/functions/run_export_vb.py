@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 
+
 def run_export_vb(op, evbh_export_vb, export_dir, asset_path):
     if not evbh_export_vb:
         op.report({"WARNING"}, "export_vb 경로가 설정되지 않음")
@@ -56,7 +57,9 @@ def run_export_vb(op, evbh_export_vb, export_dir, asset_path):
         # 2) mods로 내보내진 폴더 이동
         dest_mods_root = os.path.join(base_dir, "mods")
         os.makedirs(dest_mods_root, exist_ok=True)
-        dest_mod = os.path.join(dest_mods_root, os.path.basename(os.path.normpath(export_dir)))
+        dest_mod = os.path.join(
+            dest_mods_root, os.path.basename(os.path.normpath(export_dir))
+        )
         if os.path.exists(dest_mod):
             if os.path.isdir(dest_mod):
                 shutil.rmtree(dest_mod)

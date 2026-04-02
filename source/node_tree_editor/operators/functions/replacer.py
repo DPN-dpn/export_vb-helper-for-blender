@@ -2,6 +2,7 @@ import re
 import os
 import uuid
 
+
 def replace_strings(op, ini_contents, matchings):
     """
     sections: {'order': [...], 'sections': {name: [lines]}}
@@ -28,7 +29,9 @@ def replace_strings(op, ini_contents, matchings):
     section_renames = {}
     file_repl_count = 0
 
-    op.report({"INFO"}, f"replace_strings 시작: 섹션={len(order)}, 매칭파일={len(matchings)}")
+    op.report(
+        {"INFO"}, f"replace_strings 시작: 섹션={len(order)}, 매칭파일={len(matchings)}"
+    )
 
     # 1) 각 섹션의 filename 값 교체하고, 섹션명 변경 대상 수집
     for sec_name in list(order):
@@ -93,7 +96,9 @@ def replace_strings(op, ini_contents, matchings):
             file_repl_count += 1
 
             # 섹션명 교체 규칙 적용 (예약어 보존)
-            prefix_found = next((p for p in reserved_prefixes if sec_name.startswith(p)), None)
+            prefix_found = next(
+                (p for p in reserved_prefixes if sec_name.startswith(p)), None
+            )
             if prefix_found and new_section_suffix:
                 new_sec_name = prefix_found + new_section_suffix
                 if new_sec_name != sec_name:
@@ -104,7 +109,10 @@ def replace_strings(op, ini_contents, matchings):
 
     # 2) 섹션명 변경이 있으면, 섹션 참조들까지 안전하게 교체하고 키 이름 갱신
     if section_renames:
-        token_for_old = {old: f"__EVBH_SEC_TOKEN_{uuid.uuid4().hex}__" for old in section_renames.keys()}
+        token_for_old = {
+            old: f"__EVBH_SEC_TOKEN_{uuid.uuid4().hex}__"
+            for old in section_renames.keys()
+        }
 
         # old -> token
         for sn, lines in sections.items():
