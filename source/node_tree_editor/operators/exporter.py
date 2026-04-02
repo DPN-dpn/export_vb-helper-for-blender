@@ -173,21 +173,13 @@ def copy_exported_files(op, export_dir, mod_path, matchings):
 
             desired_base = replacements.get(repl_key, {}).get("new_base") or orig_base
 
-            # 3) 충돌 방지: 동일 이름 존재시 _1, _2 ... 붙임
+            # 충돌 시 덮어쓰기
             candidate = desired_base
-            base, ext = os.path.splitext(candidate)
-            i = 1
-            while candidate in used_names or os.path.exists(
-                os.path.join(export_dir, candidate)
-            ):
-                candidate = f"{base}_{i}{ext}"
-                i += 1
-
-            # 넘버링이 붙었다면 알림
-            if candidate != desired_base:
+            dst_path = os.path.join(export_dir, candidate)
+            if candidate in used_names or os.path.exists(dst_path):
                 op.report(
                     {"INFO"},
-                    f"파일명 충돌로 접미사 추가: '{desired_base}' -> '{candidate}' (mod: {mod_name})",
+                    f"파일명 충돌로 덮어쓰기: '{candidate}' (mod: {mod_name})",
                 )
 
             dst = os.path.join(export_dir, candidate)
