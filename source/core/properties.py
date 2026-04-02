@@ -93,8 +93,14 @@ def register():
     bpy.types.Scene.evbh_mod_path = StringProperty(
         name="모드", default="", subtype="DIR_PATH", update=prop_update
     )
+    bpy.types.Scene.evbh_current_asset_path = StringProperty(
+        name="현재 에셋", default="", subtype="FILE_PATH"
+    )
+    bpy.types.Scene.evbh_current_mod_path = StringProperty(
+        name="현재 모드", default="", subtype="DIR_PATH"
+    )
     bpy.types.Scene.evbh_export_path = StringProperty(
-        name="내보내기 폴더", default="", subtype="DIR_PATH", update=prop_update
+        name="내보내기 폴더", default="", subtype="DIR_PATH"
     )
     bpy.types.Scene.evbh_show_texture_sockets = BoolProperty(
         name="텍스처 소켓 표시", default=False, update=_toggle_texture_sockets
@@ -104,5 +110,7 @@ def register():
 def unregister():
     del bpy.types.Scene.evbh_show_texture_sockets
     del bpy.types.Scene.evbh_export_path
+    del bpy.types.Scene.evbh_current_mod_path
+    del bpy.types.Scene.evbh_current_asset_path
     del bpy.types.Scene.evbh_mod_path
     del bpy.types.Scene.evbh_asset_path

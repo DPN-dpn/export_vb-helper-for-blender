@@ -6,7 +6,7 @@ from ...data import text_data_block
 import os
 
 
-def read_file_text(path: str) -> str:
+def _read_file_text(path: str) -> str:
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             return f.read()
@@ -26,7 +26,7 @@ class EVHB_OT_select_asset(Operator, ImportHelper):
         text_data_block.clear_text_blocks("ASSET")
         context.scene.evbh_asset_path = self.filepath
 
-        content = read_file_text(self.filepath)
+        content = _read_file_text(self.filepath)
         text_name = os.path.basename(self.filepath).replace("\\", "/")
         text = text_data_block.create_or_replace_text_block(text_name, content, "ASSET")
 
@@ -79,7 +79,7 @@ class EVHB_OT_select_mod(Operator, ImportHelper):
                 text_name = rel.replace("\\", "/")
             except Exception:
                 text_name = os.path.basename(p).replace("\\", "/")
-            content = read_file_text(p)
+            content = _read_file_text(p)
             text = text_data_block.create_or_replace_text_block(
                 text_name, content, "MOD"
             )

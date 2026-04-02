@@ -5,7 +5,7 @@ import json
 import re
 from ...data import text_data_block
 from ...core import properties as prep_properties
-
+from .functions.ini_parser import parse_ini
 
 def _find_first_node_editor_space(context):
     # Find a NODE_EDITOR area in the current screen and return its space.
@@ -145,22 +145,13 @@ def _create_asset_texture_sockets(node, comp):
                         "hash": str(hv) if hv else None,
                     }
                 )
-                try:
-                    node[key] = saved
-                except Exception:
-                    pass
+                node[key] = saved
                 continue
 
-            try:
-                in_sock = node.inputs.new("INI_TextureSocket", socket_label)
-                texture_count += 1
-                if hv:
-                    try:
-                        in_sock["hash"] = str(hv)
-                    except Exception:
-                        pass
-            except Exception:
-                continue
+            in_sock = node.inputs.new("INI_TextureSocket", socket_label)
+            texture_count += 1
+            if hv:
+                in_sock["hash"] = str(hv)
 
     return texture_count
 
@@ -186,21 +177,8 @@ def _create_mod_nodes(op, tree):
         except Exception:
             content = text.as_string() if hasattr(text, "as_string") else ""
 
-        # 섹션 파싱: 단순 라인 기반으로 [section] 구간을 분리
-        sections = {}
-        cur_name = None
-        for raw in content.splitlines():
-            line = raw.strip()
-            if not line:
-                continue
-            m = re.match(r"^\[(.+?)\]$", line)
-            if m:
-                cur_name = m.group(1)
-                sections.setdefault(cur_name, [])
-                continue
-            if cur_name is None:
-                continue
-            sections[cur_name].append(line)
+        # 섹션 파싱: parse_ini 사용
+        order, sections = parse_ini(content)
 
         # ini 파일 하나당 노드 하나 생성
         node = tree.nodes.new("ModFileNode")
@@ -282,16 +260,10 @@ def _create_mod_nodes(op, tree):
             if socket_type is None:
                 continue
 
-            try:
-                out_sock = node.outputs.new(socket_type, socket_label)
-                socket_count += 1
-                if hash_val:
-                    try:
-                        out_sock["hash"] = str(hash_val)
-                    except Exception:
-                        pass
-            except Exception:
-                continue
+            out_sock = node.outputs.new(socket_type, socket_label)
+            socket_count += 1
+            if hash_val:
+                out_sock["hash"] = str(hash_val)
 
         # 모드 노드에 모드 텍스처 소켓 추가
         socket_count += _create_mod_texture_sockets(node, sections)
@@ -384,23 +356,14 @@ def _create_mod_texture_sockets(node, sections):
                     "hash": str(hash_val) if hash_val else None,
                 }
             )
-            try:
-                node[key] = saved
-            except Exception:
-                pass
+            node[key] = saved
             continue
 
         # 소켓 생성
-        try:
-            out_sock = node.outputs.new("INI_TextureSocket", socket_label)
-            texture_count += 1
-            if hash_val:
-                try:
-                    out_sock["hash"] = str(hash_val)
-                except Exception:
-                    pass
-        except Exception:
-            continue
+        out_sock = node.outputs.new("INI_TextureSocket", socket_label)
+        texture_count += 1
+        if hash_val:
+            out_sock["hash"] = str(hash_val)
 
     return texture_count
 
@@ -448,7 +411,12 @@ class EVHB_OT_create_new_tree(Operator):
             if ng.name in bpy.data.node_groups:
                 bpy.data.node_groups.remove(ng)
 
+        # 노드트리 생성
         tree = bpy.data.node_groups.new(self.name, "EVBHNodeTree")
+        
+        scene = context.scene
+        scene.evbh_current_asset_path = getattr(scene, "evbh_asset_path", "") or ""
+        scene.evbh_current_mod_path = getattr(scene, "evbh_mod_path", "") or ""
 
         # 현재 화면의 첫 번째 NODE_EDITOR 공간을 찾아 새 노드트리를 엽니다.
         space = _find_first_node_editor_space(context)

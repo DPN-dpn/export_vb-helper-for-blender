@@ -8,7 +8,7 @@ import zipfile
 import shutil
 
 
-def redraw_ui_regions(context):
+def _redraw_ui_regions(context):
     # 패널 강제 새로고침
     for window in context.window_manager.windows:
         for area in window.screen.areas:
@@ -49,7 +49,7 @@ class OT_CheckUpdate(Operator):
             context.scene["update_available"] = False
             self.report({"ERROR"}, f"업데이트 확인 실패: {e}")
 
-        redraw_ui_regions(context)
+        _redraw_ui_regions(context)
         return {"FINISHED"}
 
 
@@ -103,7 +103,7 @@ class OT_DoUpdate(Operator):
 
             self.report({"WARNING"}, "블렌더를 재시작해, 애드온을 새로고침해 주세요.")
             context.scene["show_restart"] = True
-            redraw_ui_regions(context)
+            _redraw_ui_regions(context)
             return {"FINISHED"}
 
         except Exception as e:

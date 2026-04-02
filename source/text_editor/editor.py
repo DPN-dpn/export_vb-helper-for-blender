@@ -4,7 +4,7 @@ from ..node_tree_editor.tree import EVBHNodeTree
 _original_node_header_draw = None
 
 
-def workspace_has_evbhnodetree(context) -> bool:
+def _workspace_has_evbhnodetree(context) -> bool:
     screen = context.screen or (context.window and context.window.screen)
     if not screen:
         return False
@@ -31,7 +31,7 @@ def workspace_has_evbhnodetree(context) -> bool:
             return True
 
 
-def simplified_text_header_draw(self, context):
+def _simplified_text_header_draw(self, context):
     layout = self.layout
 
     st = context.space_data
@@ -73,9 +73,9 @@ def simplified_text_header_draw(self, context):
     syntax.prop(st, "show_syntax_highlight", text="")
 
 
-def patched_text_header_draw(self, context):
-    if workspace_has_evbhnodetree(context):
-        simplified_text_header_draw(self, context)
+def _patched_text_header_draw(self, context):
+    if _workspace_has_evbhnodetree(context):
+        _simplified_text_header_draw(self, context)
         return
 
     if _original_node_header_draw:
@@ -87,7 +87,7 @@ def register():
 
     if _original_node_header_draw is None:
         _original_node_header_draw = getattr(bpy.types.TEXT_HT_header, "draw", None)
-        bpy.types.TEXT_HT_header.draw = patched_text_header_draw
+        bpy.types.TEXT_HT_header.draw = _patched_text_header_draw
 
 
 def unregister():

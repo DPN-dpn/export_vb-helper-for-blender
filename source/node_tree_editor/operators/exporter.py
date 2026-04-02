@@ -3,9 +3,9 @@ from bpy.types import Operator
 from bpy.props import StringProperty
 from bpy_extras.io_utils import ImportHelper
 import os
+import re
 import shutil
-import uuid
-from .postprocessor import postprocess_ini
+from .functions import ini_parser, collector, replacer, postprocessor, run_export_vb
 
 
 def select_export_path(context, path: str) -> str:
@@ -21,167 +21,14 @@ def select_export_path(context, path: str) -> str:
     return base
 
 
-def collect_result_mappings(node_tree):
-    """
-    수집된 매핑 정보:
-    [{'assets': [{'asset_node_name': 'Body',
-                'asset_node_type': 'AssetSlotNode',
-                'asset_socket_name': 'Result',
-                'mods': [{'asset_input_hash': 'f84d5a49',
-                            'asset_input_name': 'Position',
-                            'mod_node_name': 'AriaDevil.ini',
-                            'mod_node_type': 'ModFileNode',
-                            'mod_socket_hash': '56eaff1c',
-                            'mod_socket_name': 'AriaDevilBodyPosition.buf',
-                            'mod_socket_type': 'INI_PositionSocket'},
-                        {'asset_input_hash': 'c6bb960b',
-                            'asset_input_name': 'IB_A',
-                            'mod_node_name': 'AriaDevil.ini',
-                            'mod_node_type': 'ModFileNode',
-                            'mod_socket_hash': 'c6bb960b',
-                            'mod_socket_name': 'AriaDevilBodyA.ib',
-                            'mod_socket_type': 'INI_IBSocket'},
-                        {'asset_input_hash': 'a55f187e',
-                            'asset_input_name': 'IB_A_Diffuse',
-                            'mod_node_name': 'AriaDevil.ini',
-                            'mod_node_type': 'ModFileNode',
-                            'mod_socket_hash': 'c6bb960b',
-                            'mod_socket_name': 'AriaDevilBodyADiffuse.dds',
-                            'mod_socket_type': 'INI_TextureSocket'},
-    'input_index': 0,
-    'input_name': 'Data 1'},
-    """
-    if node_tree is None:
-        return []
+def create_ini_contents(op, need_sockets):
+    # need_sockets를 바탕으로 데이터 블록에 있는 ini에서 섹션을 긁어옴
+    # 반환: (new_order, {name: lines})
+    new_sections = {}
+    new_order = []
 
-    # ResultNode 찾기
-    result_node = next(
-        (n for n in node_tree.nodes if getattr(n, "bl_idname", "") == "ResultNode"),
-        None,
-    )
-    if result_node is None:
-        return []
-
-    mappings = []
-    for idx, input_sock in enumerate(result_node.inputs):
-        # 각 Result 입력마다 여러 링크(여러 Asset이 올 수 있음)를 허용
-        input_links = list(getattr(input_sock, "links", []))
-        if not input_links:
-            continue
-
-        entry = {
-            "input_index": idx,
-            "input_name": getattr(input_sock, "name", ""),
-            "assets": [],
-        }
-
-        for link in input_links:
-            asset_node = getattr(link, "from_node", None)
-            asset_socket = getattr(link, "from_socket", None)
-            if asset_node is None:
-                continue
-
-            asset_entry = {
-                "asset_node_name": getattr(asset_node, "name", ""),
-                "asset_node_type": getattr(asset_node, "bl_idname", ""),
-                "asset_socket_name": (
-                    getattr(asset_socket, "name", "") if asset_socket else ""
-                ),
-                "mods": [],
-            }
-
-            # AssetSlotNode의 각 입력 소켓(Asset이 받는 각 슬롯)에 연결된 링크들을 검사
-            for a_input in getattr(asset_node, "inputs", []):
-                for link2 in list(getattr(a_input, "links", [])):
-                    mod_node = getattr(link2, "from_node", None)
-                    mod_socket = getattr(link2, "from_socket", None)
-                    if mod_node is None:
-                        continue
-                    mod_info = {
-                        "mod_node_name": getattr(mod_node, "name", ""),
-                        "mod_node_type": getattr(mod_node, "bl_idname", ""),
-                        "mod_socket_name": (
-                            getattr(mod_socket, "name", "") if mod_socket else ""
-                        ),
-                        "mod_socket_type": (
-                            getattr(
-                                getattr(mod_socket, "__class__", None), "bl_idname", ""
-                            )
-                            if mod_socket
-                            else ""
-                        ),
-                        "mod_socket_hash": (
-                            mod_socket.get("hash", "")
-                            if mod_socket and hasattr(mod_socket, "get")
-                            else ""
-                        ),
-                        "asset_input_name": getattr(a_input, "name", ""),
-                        "asset_input_hash": (
-                            a_input.get("hash", "") if hasattr(a_input, "get") else ""
-                        ),
-                    }
-                    asset_entry["mods"].append(mod_info)
-
-            entry["assets"].append(asset_entry)
-
-        mappings.append(entry)
-
-    return mappings
-
-
-def group_mods_needed(mappings):
-    """mappings에서 mod_node_name -> set(mod_socket_name) 형태로 그룹화해서 반환"""
-    mods_needed = {}
-    for entry in mappings:
-        for asset in entry.get("assets", []):
-            for mod in asset.get("mods", []):
-                name = mod.get("mod_node_name", "")
-                sock = mod.get("mod_socket_name", "")
-                if not name:
-                    continue
-                mods_needed.setdefault(name, set()).add(sock)
-    return mods_needed
-
-
-def _parse_sections(text):
-    """텍스트 블록을 섹션 단위로 파싱: (order, {name: lines}) 반환"""
-    lines = [l.body for l in text.lines]
-    sections = {}
-    order = []
-    cur_name = None
-    cur_lines = []
-    for ln in lines:
-        s = ln.rstrip("\n\r")
-        if s.strip().startswith("[") and s.strip().endswith("]"):
-            if cur_name is not None:
-                sections[cur_name] = cur_lines
-            cur_name = s.strip()[1:-1]
-            order.append(cur_name)
-            cur_lines = [s + "\n"]
-        else:
-            if cur_name is None:
-                cur_lines.append(s + "\n")
-            else:
-                cur_lines.append(s + "\n")
-    if cur_name is not None:
-        sections[cur_name] = cur_lines
-    return order, sections
-
-
-def process_mods(op, export_parent, source_mod_path, mods_needed):
-    """mods_needed를 처리: INI 생성, 파일 복사. report_fn(msg_type, msg) 호출 가능.
-    반환: (written_inis, copied_files)
-    """
-    written_inis = []
-    copied_files = []
-
-    export_folder_name = (
-        os.path.basename(os.path.normpath(source_mod_path)) or "exported_mod"
-    )
-    export_dir = os.path.join(export_parent, export_folder_name)
-    os.makedirs(export_dir, exist_ok=True)
-
-    for mod_name, sockets in mods_needed.items():
+    for mod_name, sockets in (need_sockets or {}).items():
+        # 텍스트 블록 찾기(역슬래시/슬래시 변환 허용)
         text = bpy.data.texts.get(mod_name)
         if text is None:
             text = bpy.data.texts.get(mod_name.replace("\\", "/"))
@@ -189,520 +36,380 @@ def process_mods(op, export_parent, source_mod_path, mods_needed):
             op.report({"WARNING"}, f"텍스트 데이터 블록을 찾지 못함: {mod_name}")
             continue
 
-        order, sections = _parse_sections(text)
+        order, sections = ini_parser.parse_ini(text)
 
+        # 초기: Resource로 시작하는 섹션 중 filename= 값에 소켓이 포함된 섹션 수집
         initial = set()
-        for sec_name, sec_lines in sections.items():
-            joined = "".join(sec_lines)
-            for sname in sockets:
-                if sname and sname in joined:
-                    initial.add(sec_name)
+        filename_re = re.compile(r"^\s*filename\s*=\s*(.+)$", re.IGNORECASE)
+        for sec_name in order:
+            if not sec_name.lower().startswith("resource"):
+                continue
+            lines = sections.get(sec_name, []) or []
+            for ln in lines:
+                m = filename_re.match(ln)
+                if not m:
+                    continue
+                val = m.group(1).strip()
+                val = re.split(r";|#", val)[0].strip().strip('"').strip("'")
+                val_base = os.path.basename(val)
+                for s in sockets:
+                    if not s:
+                        continue
+                    s_base = os.path.basename(s)
+                    if s_base and (
+                        s_base == val_base
+                        or s_base in val_base
+                        or s in val
+                        or s.replace("\\", "/") in val
+                    ):
+                        initial.add(sec_name)
+                        break
+                if sec_name in initial:
+                    break
 
+        # 재귀적 참조: 초기 섹션명을 값으로 참조하는 섹션들을 전부 포함
         found = set(initial)
         changed = True
+        kv_re = re.compile(r"^(?P<k>[^=]+)=(?P<v>.+)$")
         while changed:
             changed = False
-            for sec_name, sec_lines in sections.items():
+            for sec_name, lines in sections.items():
                 if sec_name in found:
                     continue
-                joined = "".join(sec_lines)
-                if any(ref in joined for ref in found):
-                    found.add(sec_name)
-                    changed = True
+                for ln in lines or []:
+                    m = kv_re.match(ln)
+                    if not m:
+                        continue
+                    v = m.group("v").strip()
+                    v_clean = re.split(r";|#", v)[0].strip().strip('"').strip("'")
+                    if v_clean in found:
+                        found.add(sec_name)
+                        changed = True
+                        break
+                if changed:
+                    break
 
-        if not found:
-            op.report({"INFO"}, f"모드 {mod_name}에서 참조된 섹션을 찾지 못함")
-
-        out_lines = []
+        # 원래 순서를 유지하여 new_sections/new_order에 추가
         for nm in order:
-            if nm in found:
-                out_lines.extend(sections.get(nm, []))
+            if nm in found and nm not in new_sections:
+                new_sections[nm] = sections.get(nm, []) or []
+                new_order.append(nm)
 
-        dest_ini_path = os.path.join(export_dir, mod_name)
-        dest_ini_dir = os.path.dirname(dest_ini_path)
-        if dest_ini_dir:
-            os.makedirs(dest_ini_dir, exist_ok=True)
-        try:
-            with open(dest_ini_path, "w", encoding="utf-8") as f:
-                f.writelines(out_lines)
-            written_inis.append(dest_ini_path)
-        except Exception as e:
-            op.report({"WARNING"}, f"INI 파일 쓰기 실패: {dest_ini_path} ({e})")
+    ini_contents = {
+        "order": new_order,
+        "sections": new_sections,
+    }
 
-        mod_full = os.path.normpath(os.path.join(source_mod_path, mod_name))
-        mod_dir = os.path.dirname(mod_full)
-        for sock in sockets:
-            if not sock:
+    return ini_contents
+
+
+def create_exported_folder(op, export_parent, mod_path):
+    # 내보내기 폴더 생성: {export_parent}/{mod_name}
+    export_dir = os.path.join(
+        export_parent, os.path.basename(os.path.normpath(mod_path))
+    )
+    try:
+        os.makedirs(export_dir, exist_ok=True)
+    except Exception as e:
+        raise op.report({"ERROR"}, f"내보내기 폴더 생성 실패: {export_dir} ({e})")
+    return export_dir
+
+
+def copy_exported_files(op, export_dir, mod_path, matchings):
+    if not matchings:
+        op.report({"INFO"}, "복사할 매칭 정보가 없습니다")
+        return []
+
+    os.makedirs(export_dir, exist_ok=True)
+
+    copied_files = []
+    used_names = set()
+
+    for mod_name, m in (matchings or {}).items():
+        sockets = m.get("sockets") or set()
+        replacements = m.get("replacements") or {}
+        # 모드 파일 기준 디렉터리
+        mod_full = os.path.normpath(os.path.join(mod_path, mod_name))
+        mod_dir = os.path.dirname(mod_full) or mod_path
+
+        for orig in list(sockets):
+            if not orig:
                 continue
-            src = os.path.normpath(os.path.join(mod_dir, sock))
+            orig_base = os.path.basename(orig)
+
+            # 1) 원본 파일 경로 결정
+            src = os.path.normpath(os.path.join(mod_dir, orig))
             if not os.path.isfile(src):
-                if os.path.isabs(sock) and os.path.isfile(sock):
-                    src = sock
+                if os.path.isabs(orig) and os.path.isfile(orig):
+                    src = orig
                 else:
-                    op.report({"WARNING"}, f"복사할 파일을 찾지 못함: {src}")
-                    continue
-            try:
-                rel = os.path.relpath(src, source_mod_path)
-            except Exception:
-                rel = os.path.basename(src)
-            dst = os.path.normpath(os.path.join(export_dir, rel))
+                    found = None
+                    for root, _, files in os.walk(mod_dir):
+                        if orig_base in files:
+                            found = os.path.join(root, orig_base)
+                            break
+                    if not found:
+                        for root, _, files in os.walk(mod_path):
+                            if orig_base in files:
+                                found = os.path.join(root, orig_base)
+                                break
+                    if found:
+                        src = found
+                    else:
+                        op.report(
+                            {"WARNING"},
+                            f"복사할 파일을 찾지 못함: {orig} (mod: {mod_name})",
+                        )
+                        continue
+
+            # 2) 목표 파일명 결정 (replacements에서 new_base 사용)
+            if orig in replacements:
+                repl_key = orig
+            elif orig_base in replacements:
+                repl_key = orig_base
+            else:
+                repl_key = orig
+                replacements.setdefault(repl_key, {})["new_base"] = orig_base
+
+            desired_base = replacements.get(repl_key, {}).get("new_base") or orig_base
+
+            # 3) 충돌 방지: 동일 이름 존재시 _1, _2 ... 붙임
+            candidate = desired_base
+            base, ext = os.path.splitext(candidate)
+            i = 1
+            while candidate in used_names or os.path.exists(
+                os.path.join(export_dir, candidate)
+            ):
+                candidate = f"{base}_{i}{ext}"
+                i += 1
+
+            # 넘버링이 붙었다면 알림
+            if candidate != desired_base:
+                op.report(
+                    {"INFO"},
+                    f"파일명 충돌로 접미사 추가: '{desired_base}' -> '{candidate}' (mod: {mod_name})",
+                )
+
+            dst = os.path.join(export_dir, candidate)
             dst_dir = os.path.dirname(dst)
-            os.makedirs(dst_dir, exist_ok=True)
+            if dst_dir:
+                os.makedirs(dst_dir, exist_ok=True)
+
             try:
                 shutil.copy2(src, dst)
                 copied_files.append(dst)
+                used_names.add(candidate)
+                # matchings에 최종 파일명 기록 (나중에 INI 작성 시 사용)
+                replacements.setdefault(repl_key, {})["final_base"] = candidate
             except Exception as e:
-                op.report({"WARNING"}, f"파일 복사 실패: {src} -> {dst} ({e})")
-
-    op.report(
-        {"INFO"}, f"INI 생성: {len(written_inis)} 파일, 복사: {len(copied_files)} 파일"
-    )
-    return
-
-
-def _perform_file_copies(op, export_dir, occurrences):
-    """각 소켓별로 파일을 복사하고 INI 치환 목록을 생성하여 반환한다.
-    반환: (copied_files, rename_map, ini_replacements, originals_to_delete)
-    """
-    rename_map = {}
-    copied_files = []
-    ini_replacements = {}
-    originals_to_delete = set()
-    token_to_final = {}
-
-    for occ in occurrences:
-        mod_name = occ.get("mod_name")
-        orig = occ.get("orig")
-        orig_base = occ.get("orig_base")
-        desired_new = occ.get("new_base")
-
-        expected_src = os.path.normpath(
-            os.path.join(export_dir, os.path.dirname(mod_name), orig)
-        )
-        if not os.path.exists(expected_src):
-            found = None
-            for root, dirs, files in os.walk(export_dir):
-                if orig_base in files:
-                    found = os.path.join(root, orig_base)
-                    break
-            if found:
-                expected_src = found
-            else:
                 op.report(
                     {"WARNING"},
-                    f"복사할 원본 파일을 찾지 못함: {orig} (mod: {mod_name})",
+                    f"파일 복사 실패: {src} -> {dst} ({e})",
                 )
                 continue
 
-        dst_dir = os.path.dirname(expected_src)
-        originals_to_delete.add(expected_src)
-
-        # 생성할 최종 파일명(desired_new)의 확장자를 유지하면서 임시 토큰 파일명 생성
-        _, ext = os.path.splitext(desired_new)
-        token_basename = f"__EVBH_TMP_{uuid.uuid4().hex}{ext}"
-        dst = os.path.join(dst_dir, token_basename)
-        # 만약 토큰 파일명이 이미 존재하면 재생성
-        while os.path.exists(dst):
-            token_basename = f"__EVBH_TMP_{uuid.uuid4().hex}{ext}"
-            dst = os.path.join(dst_dir, token_basename)
-
-        try:
-            shutil.copy2(expected_src, dst)
-            copied_files.append(dst)
-            rel_src = os.path.relpath(expected_src, export_dir).replace("\\", "/")
-            rel_dst = os.path.relpath(dst, export_dir).replace("\\", "/")
-            rename_map.setdefault(rel_src, []).append(rel_dst)
-            # ini에서는 원문 -> 토큰으로 치환하도록 기록 (원본basename, 토큰파일명, 최종목표이름)
-            ini_path = os.path.normpath(os.path.join(export_dir, mod_name))
-            ini_replacements.setdefault(ini_path, []).append(
-                (orig_base, token_basename, desired_new)
-            )
-            # 토큰->최종 이름 매핑 기록(나중에 토큰 파일을 최종 이름으로 변경)
-            token_to_final[token_basename] = desired_new
-        except Exception as e:
-            op.report(
-                {"WARNING"}, f"소켓별 파일 복사 실패: {expected_src} -> {dst} ({e})"
-            )
-            continue
-
-    return (
-        copied_files,
-        rename_map,
-        ini_replacements,
-        originals_to_delete,
-        token_to_final,
-    )
+    op.report({"INFO"}, f"파일 복사 완료: {len(copied_files)}개")
+    return copied_files
 
 
-def _perform_ini_replacements(op, ini_replacements):
-    """INI 파일들에 대해 순차적 치환을 수행한다.
+def write_ini_file(op, export_dir, ini_contents, asset_name):
+    if not ini_contents:
+        op.report({"INFO"}, "작성할 ini가 없습니다")
+        return None
 
-    추가 기능:
-    - 섹션명 치환: 예약어(TextureOverride/Resource/Key/ShaderOverride/CommandList)+파일명(확장자 제외)
-      형태의 섹션명을 원문->토큰->최종 문자열 순으로 치환하여 중복을 방지한다.
-    - 파일명 치환도 원문->토큰->최종 문자열 순으로 수행하며, 기존 동작(각 치환은 다음 미치환 항목에 대해서만 적용)을 유지한다.
-    """
-    KEYWORDS = ("TextureOverride", "Resource", "Key", "ShaderOverride", "CommandList")
+    os.makedirs(export_dir, exist_ok=True)
 
-    for ini_path, repls in ini_replacements.items():
-        if not os.path.exists(ini_path):
-            continue
-        try:
-            with open(ini_path, "r", encoding="utf-8") as f:
-                data = f.read()
-        except Exception:
-            continue
-
-        token_map = {}
-
-        # 1) 섹션명 원문 -> 토큰 (글로벌 치환)
-
-        # repls now contain tuples: (orig_base, token_basename, desired_new)
-        for orig_base, token_basename, desired_new in repls:
-            orig_noext = os.path.splitext(orig_base)[0]
-            new_noext = os.path.splitext(desired_new)[0]
-            for kw in KEYWORDS:
-                orig_sec = f"{kw}{orig_noext}"
-                new_sec = f"{kw}{new_noext}"
-                if orig_sec == new_sec:
-                    continue
-                if orig_sec in data:
-                    tok = f"__EVBH_SEC_TOKEN_{uuid.uuid4().hex}__"
-                    data = data.replace(orig_sec, tok)
-                    token_map[tok] = new_sec
-
-        # 2) 파일명(원문) -> 토큰 (각 치환은 다음 미치환 항목에 대해서만 적용)
-        for orig_base, token_basename, desired_new in repls:
-            idx = data.find(orig_base)
-            if idx == -1:
-                continue
-            tok = f"__EVBH_FILE_TOKEN_{uuid.uuid4().hex}__"
-            data = data[:idx] + data[idx:].replace(orig_base, tok, 1)
-            # 파일 토큰은 나중에 토큰_basename으로 바뀌고, 최종적으로 _finalize_file_names에서 최종명으로 바뀜
-            token_map[tok] = token_basename
-
-        # 3) 모든 토큰 -> 최종 문자열
-        for tok, final in token_map.items():
-            data = data.replace(tok, final)
-
-        try:
-            with open(ini_path, "w", encoding="utf-8") as f:
-                f.write(data)
-        except Exception as e:
-            op.report({"WARNING"}, f"INI 파일 쓰기 실패: {ini_path} ({e})")
-
-
-def _finalize_file_names(op, export_dir, token_to_final, ini_paths):
-    """토큰화된 파일명을 최종 네이밍으로 변경하고, 해당 INI 파일들 안의 토큰도 최종명으로 교체한다."""
-    renamed = []
-    for token_basename, final_basename in token_to_final.items():
-        # 토큰 파일 전체 경로 찾기
-        found = None
-        for root, dirs, files in os.walk(export_dir):
-            if token_basename in files:
-                found = os.path.join(root, token_basename)
-                break
-        if not found:
-            op.report({"WARNING"}, f"토큰 파일을 찾지 못함: {token_basename}")
-            continue
-
-        final_path = os.path.join(os.path.dirname(found), final_basename)
-        base, ext = os.path.splitext(final_basename)
-        i = 1
-        while os.path.exists(final_path):
-            candidate = f"{base}_{i}{ext}"
-            final_path = os.path.join(os.path.dirname(found), candidate)
-            i += 1
-
-        try:
-            os.replace(found, final_path)
-            renamed.append((found, final_path))
-        except Exception as e:
-            op.report(
-                {"WARNING"}, f"토큰 파일 이름 변경 실패: {found} -> {final_path} ({e})"
-            )
-            continue
-
-        # 해당 INI 파일들 내부의 토큰 문자열을 최종명으로 교체
-        for ini_path in ini_paths:
-            if not os.path.exists(ini_path):
-                continue
-            try:
-                with open(ini_path, "r", encoding="utf-8") as f:
-                    txt = f.read()
-            except Exception:
-                continue
-            if token_basename in txt:
-                txt = txt.replace(token_basename, os.path.basename(final_path))
-                try:
-                    with open(ini_path, "w", encoding="utf-8") as f:
-                        f.write(txt)
-                except Exception as e:
-                    op.report(
-                        {"WARNING"}, f"INI 파일 최종명 치환 실패: {ini_path} ({e})"
-                    )
-
-    return renamed
-
-
-def replace_strings(op, mappings):
-    # 내보내기로 복사된 파일에서 매핑 정보를 바탕으로 문자열교체함
-    # {evbh_asset_path의 폴더명}{asset_node_name}{asset_input_name(mod_socket_type이 INI_IBSocket일 경우 _로 분리한 뒷 문자(예: IB_A가 원문이면 A), INI_TextureSocket일 경우 _로 분리한 뒷 문자들 연결(예: IB_A_Diffuse가 원문이면 ADiffuse), 둘 다 아니면 그냥 asset_input_name)}
-    # evbh_asset_path는 파일경로이므로 파일명이 아닌 폴더명으로 하는 것에 주의
-    # 이후 문자열 교체 과정은 문자열의 의도치 않은 중복을 방지하기 위해 원문->임시토큰->최종문자열 순으로 교체
-
-    scene = bpy.context.scene
-    export_parent = getattr(scene, "evbh_export_path", "") or ""
-    source_mod_path = getattr(scene, "evbh_mod_path", "") or ""
-    asset_path = getattr(scene, "evbh_asset_path", "") or ""
-
-    if not export_parent or not source_mod_path:
-        op.report(
-            {"WARNING"},
-            "내보내기 또는 소스 모드 경로가 설정되지 않음 - 문자열 교체 건너뜀",
-        )
-        return
-
-    export_dir = os.path.join(
-        export_parent, os.path.basename(os.path.normpath(source_mod_path))
-    )
-    if not os.path.isdir(export_dir):
-        op.report({"WARNING"}, f"내보내기 폴더를 찾을 수 없음: {export_dir}")
-        return
-
-    # 에셋 폴더명
-    asset_folder = os.path.basename(os.path.dirname(asset_path)) if asset_path else ""
-
-    # 수집된 매핑을 바탕으로 각 소켓별로 복사할 파일 목록(복사 대상, 복사될 새 이름, INI 파일)을 생성
-    occurrences = []
-    for entry in mappings:
-        for asset in entry.get("assets", []):
-            asset_node_name = asset.get("asset_node_name", "")
-            for mod in asset.get("mods", []):
-                orig = mod.get("mod_socket_name", "")
-                if not orig:
-                    continue
-                mod_node_name = mod.get("mod_node_name", "")
-                in_name = mod.get("asset_input_name", "")
-                sock_type = mod.get("mod_socket_type", "")
-
-                parts = (in_name or "").split("_") if in_name else []
-                if sock_type == "INI_IBSocket":
-                    tail = parts[-1] if parts else in_name
-                elif sock_type == "INI_TextureSocket":
-                    tail = "".join(parts[1:]) if len(parts) > 1 else in_name
-                else:
-                    tail = in_name
-
-                orig_base = os.path.basename(orig)
-                orig_ext = os.path.splitext(orig_base)[1]
-                if sock_type == "INI_IBSocket":
-                    ext = ".ib"
-                elif sock_type in (
-                    "INI_PositionSocket",
-                    "INI_BlendSocket",
-                    "INI_TexcoordSocket",
-                ):
-                    ext = ".buf"
-                elif sock_type == "INI_TextureSocket":
-                    ext = orig_ext or ""
-                else:
-                    ext = orig_ext or ""
-
-                new_base = f"{asset_folder}{asset_node_name}{tail}{ext}"
-
-                occurrences.append(
-                    {
-                        "mod_name": mod_node_name,
-                        "orig": orig,
-                        "orig_base": orig_base,
-                        "new_base": new_base,
-                    }
-                )
-
-    # 실제 파일 복사(토큰화) 수행
-    copied_files, rename_map, ini_replacements, originals_to_delete, token_to_final = (
-        _perform_file_copies(op, export_dir, occurrences)
-    )
-
-    # 토큰으로 복사한 후 원본 파일 삭제(요청된 순서)
-    deleted_count = 0
-    if "originals_to_delete" in locals():
-        for orig_path in list(originals_to_delete):
-            try:
-                if os.path.exists(orig_path):
-                    os.remove(orig_path)
-                    deleted_count += 1
-                else:
-                    pass
-            except Exception as e:
-                op.report({"WARNING"}, f"원본 파일 삭제 실패: {orig_path} ({e})")
-
-    # INI 파일들에 대해 토큰 기반 치환 수행 (원문 -> 토큰)
-    _perform_ini_replacements(op, ini_replacements)
-
-    # 토큰 파일명을 최종 이름으로 변경하고 INI 내부 토큰도 최종명으로 교체
-    ini_paths = list(ini_replacements.keys())
-    renamed = _finalize_file_names(op, export_dir, token_to_final, ini_paths)
-
-    op.report(
-        {"INFO"},
-        f"문자열 교체 완료: 생성된 복사본 {len(copied_files)}개, 삭제된 원본 {deleted_count}개, 최종 이름 변경 {len(renamed)}개",
-    )
-    return
-
-
-def run_export_vb(op, export_vb_path):
-    # evbh_asset_path의 폴더를 asset으로, 내보내진 폴더를 mods로 하여 export_vb.py를 실행함.
-    # export_vb.py는 export_vb_path이므로 바로 실행하면 되는데, 참고를 위해 프로젝트에 export_vb폴더를 첨부함. 폴더 내부의 export_vb.py가 해당 코드임.
-    # export_vb.py를 실행하면 output폴더에 결과 폴더가 생성되는데, 해당 폴더를 내보내기 경로로 이동함.
-    # 간략하게 설명하자면
-    # 1. export_vb_path의 폴더에 asset폴더에 evbh_asset_path의 폴더를 복사
-    # 2. export_vb_path의 폴더에 mods폴더에 내보내진 폴더를 이동
-    # 3. export_vb.py를 실행하여 output 폴더에 결과 생성
-    # 4. output 폴더의 결과를 내보내기 경로로 이동
-    import subprocess
-    import sys
-
-    scene = bpy.context.scene
-    export_parent = getattr(scene, "evbh_export_path", "") or ""
-    source_mod_path = getattr(scene, "evbh_mod_path", "") or ""
-    asset_path = getattr(scene, "evbh_asset_path", "") or ""
-
-    if not export_vb_path:
-        op.report({"WARNING"}, "export_vb 경로가 설정되지 않음")
-        return
-
-    # export_vb_path가 파일이면 디렉터리로, 폴더이면 그대로 사용
-    if os.path.isfile(export_vb_path):
-        base_dir = os.path.dirname(os.path.normpath(export_vb_path))
-        script_path = os.path.normpath(export_vb_path)
-    else:
-        base_dir = os.path.normpath(export_vb_path)
-        script_path = os.path.join(base_dir, "export_vb.py")
-
-    if not os.path.isdir(base_dir):
-        op.report({"WARNING"}, f"export_vb 폴더를 찾을 수 없음: {base_dir}")
-        return
-
-    if not os.path.isfile(script_path):
-        op.report({"WARNING"}, f"export_vb.py를 찾지 못함: {script_path}")
-        return
-
-    if not export_parent:
-        op.report(
-            {"WARNING"}, "내보내기 대상 경로(evbh_export_path)가 설정되지 않았습니다"
-        )
-        return
-
-    # 복사할 asset 폴더 결정
-    if not asset_path:
-        op.report({"WARNING"}, "에셋 경로(evbh_asset_path)가 설정되지 않았습니다")
-        return
-
-    if os.path.isdir(asset_path):
-        asset_src_dir = os.path.normpath(asset_path)
-    elif os.path.isfile(asset_path):
-        asset_src_dir = os.path.dirname(os.path.normpath(asset_path))
-    else:
-        op.report({"WARNING"}, f"에셋 경로를 찾을 수 없음: {asset_path}")
-        return
-
-    # 내보내진(처리된) 모드 폴더 (process_mods가 생성한 폴더)
-    if not source_mod_path:
-        op.report({"WARNING"}, "소스 모드 경로(evbh_mod_path)가 설정되지 않았습니다")
-        return
-
-    exported_mod_folder = os.path.join(
-        export_parent, os.path.basename(os.path.normpath(source_mod_path))
-    )
-    if not os.path.exists(exported_mod_folder):
-        op.report(
-            {"WARNING"}, f"내보내진 모드 폴더를 찾을 수 없음: {exported_mod_folder}"
-        )
-        return
-
-    created_paths = []
-    moved_mod_back = False
+    order = list(ini_contents.get("order", []) or [])
+    sections = ini_contents.get("sections", {}) or {}
 
     try:
-        # 1) asset 복사
-        dest_asset_root = os.path.join(base_dir, "asset")
-        os.makedirs(dest_asset_root, exist_ok=True)
-        dest_asset_sub = os.path.join(dest_asset_root, os.path.basename(asset_src_dir))
-        if os.path.exists(dest_asset_sub):
-            shutil.rmtree(dest_asset_sub)
-        shutil.copytree(asset_src_dir, dest_asset_sub)
-        created_paths.append(dest_asset_sub)
+        ini_text = ini_parser.unparse_ini(order, sections)
+    except Exception as e:
+        op.report({"WARNING"}, f"INI 직렬화 실패: {e}")
+        return None
 
-        # 2) mods로 내보내진 폴더 이동
-        dest_mods_root = os.path.join(base_dir, "mods")
-        os.makedirs(dest_mods_root, exist_ok=True)
-        dest_mod = os.path.join(dest_mods_root, os.path.basename(exported_mod_folder))
-        if os.path.exists(dest_mod):
-            if os.path.isdir(dest_mod):
-                shutil.rmtree(dest_mod)
-            else:
-                os.remove(dest_mod)
-        shutil.move(exported_mod_folder, dest_mod)
+    ini_fname = f"{asset_name}.ini" if asset_name else "exported.ini"
+    out_path = os.path.join(export_dir, ini_fname)
 
-        # 3) export_vb.py 실행
-        try:
-            result = subprocess.run(
-                [sys.executable, script_path],
-                cwd=base_dir,
-                capture_output=True,
-                text=True,
-                encoding="mbcs",
-                errors="replace",
-                timeout=300,
-            )
-            if result.returncode != 0:
-                op.report({"WARNING"}, f"export_vb 실행 실패: rc={result.returncode}")
-                op.report({"INFO"}, result.stdout or "")
-                op.report({"INFO"}, result.stderr or "")
-        except Exception as e:
-            op.report({"WARNING"}, f"export_vb 실행 중 예외: {e}")
+    try:
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(ini_text)
+        in_mem = globals().get("_IN_MEMORY_INIS")
+        if isinstance(in_mem, dict):
+            in_mem[out_path] = ini_text
+        op.report({"INFO"}, f"INI 파일 작성: {out_path}")
+        return out_path
+    except Exception as e:
+        op.report({"WARNING"}, f"INI 파일 쓰기 실패: {out_path} ({e})")
+        return None
 
-        # 4) output 폴더의 결과를 내보내기 경로로 이동
-        output_dir = os.path.join(base_dir, "output")
-        if os.path.isdir(output_dir):
-            for name in os.listdir(output_dir):
-                src = os.path.join(output_dir, name)
-                dst = os.path.join(export_parent, name)
-                # 덮어쓰기: 기존이 있으면 제거
-                try:
-                    if os.path.exists(dst):
-                        if os.path.isdir(dst):
-                            shutil.rmtree(dst)
-                        else:
-                            os.remove(dst)
-                    shutil.move(src, dst)
-                except Exception as e:
-                    op.report({"WARNING"}, f"output 이동 실패: {src} -> {dst} ({e})")
-        else:
-            op.report({"WARNING"}, f"output 폴더를 찾지 못함: {output_dir}")
 
-    finally:
-        # 정리: 생성한 복사본 제거
-        for p in created_paths:
-            try:
-                if os.path.isdir(p):
-                    shutil.rmtree(p)
-                elif os.path.exists(p):
-                    os.remove(p)
-            except Exception:
-                pass
-        try:
-            if os.path.exists(dest_mod):
-                if os.path.isdir(dest_mod):
-                    shutil.rmtree(dest_mod)
-                else:
-                    os.remove(dest_mod)
-        except Exception:
-            pass
+def create_exported_files(
+    op, export_parent, mod_path, ini_contents, matchings, asset_name
+):
+    # 내보내기 폴더 생성
+    export_dir = create_exported_folder(op, export_parent, mod_path)
 
-    op.report({"INFO"}, "export_vb 처리 완료")
+    # 파일 복사, 파일명 변경
+    copy_exported_files(op, export_dir, mod_path, matchings)
+
+    # ini 작성
+    write_ini_file(op, export_dir, ini_contents, asset_name)
+
+    return export_dir
+
+
+# def run_export_vb(op, export_vb_path):
+#     # evbh_asset_path의 폴더를 asset으로, 내보내진 폴더를 mods로 하여 export_vb.py를 실행함.
+#     # export_vb.py는 export_vb_path이므로 바로 실행하면 되는데, 참고를 위해 프로젝트에 export_vb폴더를 첨부함. 폴더 내부의 export_vb.py가 해당 코드임.
+#     # export_vb.py를 실행하면 output폴더에 결과 폴더가 생성되는데, 해당 폴더를 내보내기 경로로 이동함.
+#     # 간략하게 설명하자면
+#     # 1. export_vb_path의 폴더에 asset폴더에 evbh_asset_path의 폴더를 복사
+#     # 2. export_vb_path의 폴더에 mods폴더에 내보내진 폴더를 이동
+#     # 3. export_vb.py를 실행하여 output 폴더에 결과 생성
+#     # 4. output 폴더의 결과를 내보내기 경로로 이동
+#     import subprocess
+#     import sys
+
+#     scene = bpy.context.scene
+#     export_parent = getattr(scene, "evbh_export_path", "") or ""
+#     source_mod_path = getattr(scene, "evbh_mod_path", "") or ""
+#     asset_path = getattr(scene, "evbh_asset_path", "") or ""
+
+#     if not export_vb_path:
+#         op.report({"WARNING"}, "export_vb 경로가 설정되지 않음")
+#         return
+
+#     # export_vb_path가 파일이면 디렉터리로, 폴더이면 그대로 사용
+#     if os.path.isfile(export_vb_path):
+#         base_dir = os.path.dirname(os.path.normpath(export_vb_path))
+#         script_path = os.path.normpath(export_vb_path)
+#     else:
+#         base_dir = os.path.normpath(export_vb_path)
+#         script_path = os.path.join(base_dir, "export_vb.py")
+
+#     if not os.path.isdir(base_dir):
+#         op.report({"WARNING"}, f"export_vb 폴더를 찾을 수 없음: {base_dir}")
+#         return
+
+#     if not os.path.isfile(script_path):
+#         op.report({"WARNING"}, f"export_vb.py를 찾지 못함: {script_path}")
+#         return
+
+#     if not export_parent:
+#         op.report(
+#             {"WARNING"}, "내보내기 대상 경로(evbh_export_path)가 설정되지 않았습니다"
+#         )
+#         return
+
+#     # 복사할 asset 폴더 결정
+#     if not asset_path:
+#         op.report({"WARNING"}, "에셋 경로(evbh_asset_path)가 설정되지 않았습니다")
+#         return
+
+#     if os.path.isdir(asset_path):
+#         asset_src_dir = os.path.normpath(asset_path)
+#     elif os.path.isfile(asset_path):
+#         asset_src_dir = os.path.dirname(os.path.normpath(asset_path))
+#     else:
+#         op.report({"WARNING"}, f"에셋 경로를 찾을 수 없음: {asset_path}")
+#         return
+
+#     # 내보내진(처리된) 모드 폴더 (process_mods가 생성한 폴더)
+#     if not source_mod_path:
+#         op.report({"WARNING"}, "소스 모드 경로(evbh_mod_path)가 설정되지 않았습니다")
+#         return
+
+#     exported_mod_folder = os.path.join(
+#         export_parent, os.path.basename(os.path.normpath(source_mod_path))
+#     )
+#     if not os.path.exists(exported_mod_folder):
+#         op.report(
+#             {"WARNING"}, f"내보내진 모드 폴더를 찾을 수 없음: {exported_mod_folder}"
+#         )
+#         return
+
+#     created_paths = []
+#     moved_mod_back = False
+
+#     try:
+#         # 1) asset 복사
+#         dest_asset_root = os.path.join(base_dir, "asset")
+#         os.makedirs(dest_asset_root, exist_ok=True)
+#         dest_asset_sub = os.path.join(dest_asset_root, os.path.basename(asset_src_dir))
+#         if os.path.exists(dest_asset_sub):
+#             shutil.rmtree(dest_asset_sub)
+#         shutil.copytree(asset_src_dir, dest_asset_sub)
+#         created_paths.append(dest_asset_sub)
+
+#         # 2) mods로 내보내진 폴더 이동
+#         dest_mods_root = os.path.join(base_dir, "mods")
+#         os.makedirs(dest_mods_root, exist_ok=True)
+#         dest_mod = os.path.join(dest_mods_root, os.path.basename(exported_mod_folder))
+#         if os.path.exists(dest_mod):
+#             if os.path.isdir(dest_mod):
+#                 shutil.rmtree(dest_mod)
+#             else:
+#                 os.remove(dest_mod)
+#         shutil.move(exported_mod_folder, dest_mod)
+
+#         # 3) export_vb.py 실행
+#         try:
+#             result = subprocess.run(
+#                 [sys.executable, script_path],
+#                 cwd=base_dir,
+#                 capture_output=True,
+#                 text=True,
+#                 encoding="utf-8",
+#                 errors="replace",
+#                 timeout=300,
+#             )
+#             if result.returncode != 0:
+#                 op.report({"WARNING"}, f"export_vb 실행 실패: rc={result.returncode}")
+#                 op.report({"INFO"}, result.stdout or "")
+#                 op.report({"INFO"}, result.stderr or "")
+#         except Exception as e:
+#             op.report({"WARNING"}, f"export_vb 실행 중 예외: {e}")
+
+#         # 4) output 폴더의 결과를 내보내기 경로로 이동
+#         output_dir = os.path.join(base_dir, "output")
+#         if os.path.isdir(output_dir):
+#             for name in os.listdir(output_dir):
+#                 src = os.path.join(output_dir, name)
+#                 dst = os.path.join(export_parent, name)
+#                 # 덮어쓰기: 기존이 있으면 제거
+#                 try:
+#                     if os.path.exists(dst):
+#                         if os.path.isdir(dst):
+#                             shutil.rmtree(dst)
+#                         else:
+#                             os.remove(dst)
+#                     shutil.move(src, dst)
+#                 except Exception as e:
+#                     op.report({"WARNING"}, f"output 이동 실패: {src} -> {dst} ({e})")
+#         else:
+#             op.report({"WARNING"}, f"output 폴더를 찾지 못함: {output_dir}")
+
+#     finally:
+#         # 정리: 생성한 복사본 제거
+#         for p in created_paths:
+#             try:
+#                 if os.path.isdir(p):
+#                     shutil.rmtree(p)
+#                 elif os.path.exists(p):
+#                     os.remove(p)
+#             except Exception:
+#                 pass
+#         try:
+#             if os.path.exists(dest_mod):
+#                 if os.path.isdir(dest_mod):
+#                     shutil.rmtree(dest_mod)
+#                 else:
+#                     os.remove(dest_mod)
+#         except Exception:
+#             pass
+
+#     op.report({"INFO"}, "export_vb 처리 완료")
 
 
 class EVHB_OT_export_mod(Operator, ImportHelper):
@@ -718,40 +425,62 @@ class EVHB_OT_export_mod(Operator, ImportHelper):
         return {"RUNNING_MODAL"}
 
     def execute(self, context):
-        # source mod 폴더와 내보내기 대상 폴더
-        source_mod_path = getattr(context.scene, "evbh_mod_path", "") or ""
-
+        # 내보내기 경로 설정
         try:
-            export_parent = select_export_path(context, self.filepath)
+            export_path = select_export_path(context, self.filepath)
         except Exception as e:
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}
 
-        if not source_mod_path or not os.path.isdir(source_mod_path):
-            self.report({"ERROR"}, "Source mod 폴더(evbh_mod_path)가 유효하지 않습니다")
+        # 모드 폴더 경로
+        mod_path = getattr(context.scene, "evbh_current_mod_path", "")
+        if not mod_path or not os.path.isdir(mod_path):
+            self.report({"ERROR"}, "모드 폴더가 유효하지 않습니다: " + mod_path)
+            return {"CANCELLED"}
+
+        # 에셋 경로
+        asset_path = getattr(context.scene, "evbh_current_asset_path", "")
+        if not asset_path or not os.path.isfile(asset_path):
+            self.report({"ERROR"}, "에셋 파일이 유효하지 않습니다: " + asset_path)
             return {"CANCELLED"}
 
         # 현재 노드트리 얻기
         tree = getattr(context.space_data, "node_tree", None)
-        mappings = collect_result_mappings(tree)
+        mappings = collector.collect_result_mappings(
+            tree, os.path.basename(os.path.dirname(asset_path))
+        )
 
-        # 그룹화
-        mods_needed = group_mods_needed(mappings)
+        # 내보내기에 필요한 소켓만 구분
+        need_sockets = collector.collect_need_sockets(mappings)
 
-        # 실제 처리
-        process_mods(self, export_parent, source_mod_path, mods_needed)
+        # 연결된 소켓이 없으면 종료
+        if not need_sockets:
+            self.report({"INFO"}, "내보낼 소켓이 없습니다")
+            return {"FINISHED"}
 
-        # 문자열 교체
-        replace_strings(self, mappings)
+        # 새로 생성될 ini 내용 모으기
+        ini_contents = create_ini_contents(self, need_sockets)
+
+        # 교체할 문자열 매칭 모으기
+        matchings, asset_name = collector.collect_matching_strings(mappings)
+
+        # ini 문자열 교체
+        ini_contents = replacer.replace_strings(self, ini_contents, matchings)
 
         # ini 후처리
-        postprocess_ini(self)
+        ini_contents = postprocessor.postprocess_ini(self, ini_contents)
 
+        # 내보내기 파일 생성 (matchings 사용해서 파일명 변경도 처리)
+        export_dir = create_exported_files(
+            self, export_path, mod_path, ini_contents, matchings, asset_name
+        )
+
+        # 엵툵 내보내기
         from ...core.preferences import addon_module_name
 
         prefs = bpy.context.preferences.addons[addon_module_name()].preferences
         if prefs.evbh_export_vb_use and prefs.evbh_export_vb:
-            run_export_vb(self, prefs.evbh_export_vb)
+            run_export_vb.run_export_vb(self, prefs.evbh_export_vb, export_dir, asset_path)
 
         return {"FINISHED"}
 
