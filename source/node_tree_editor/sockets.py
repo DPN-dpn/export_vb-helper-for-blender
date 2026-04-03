@@ -14,20 +14,13 @@ class GenericSocket(NodeSocket):
         slotLabel = text or self.name
         hash_val = self.get("hash", "")
 
-        if self.is_output:
-            row = layout.row(align=True)
-            col_left = row.column(align=True)
-            col_left.scale_x = 1.0
-            col_left.label(text=str(hash_val) if hash_val else "")
-            row.separator()
-            row.label(text=slotLabel)
-        else:
-            row = layout.row(align=True)
-            row.label(text=slotLabel)
-            row.separator()
-            col_left = row.column(align=True)
-            col_left.scale_x = 1.0
-            col_left.label(text=str(hash_val) if hash_val else "")
+        row = layout.row(align=True)
+        row.label(text=slotLabel)
+        row.separator()
+        col_right = row.column(align=True)
+        col_right.alignment = 'RIGHT'
+        col_right.scale_x = 1.0
+        col_right.label(text=str(hash_val) if hash_val else "")
 
     def draw_color(self, context, node):
         return getattr(self, "socket_color", self.socket_color)
