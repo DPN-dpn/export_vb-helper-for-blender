@@ -7,7 +7,7 @@ BLEND_FILENAME = "EVBH.blend"
 
 def _install_workspace_helper(target_name=TARGET_NAME, blend_filename=BLEND_FILENAME):
     addon_dir = os.path.dirname(__file__)
-    blend_path = os.path.join(addon_dir, blend_filename)
+    blend_path = os.path.join(addon_dir, "../../", blend_filename)
     if not os.path.exists(blend_path):
         return False, f"{blend_filename} 파일을 찾을 수 없습니다."
 
