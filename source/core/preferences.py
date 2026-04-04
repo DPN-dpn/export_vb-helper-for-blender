@@ -30,10 +30,10 @@ class EVBHPreferences(bpy.types.AddonPreferences):
     def draw(self, context):
         layout = self.layout
 
-        # 워크스페이스 설치
+        # 작업영역 추가
         row = layout.row(align=True)
         row.operator(
-            "wm.install_workspace", icon="FILE_TICK", text="워크스페이스 설치"
+            "wm.install_workspace", icon="FILE_TICK", text="작업영역 추가"
         )
 
         # 환경설정
