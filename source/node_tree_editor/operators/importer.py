@@ -131,7 +131,5 @@ def register():
 
 
 def unregister():
-    text_data_block.clear_all_created_text_blocks()
-
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

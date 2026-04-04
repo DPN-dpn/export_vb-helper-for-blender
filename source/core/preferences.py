@@ -29,6 +29,14 @@ class EVBHPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
+
+        # 워크스페이스 설치
+        row = layout.row(align=True)
+        row.operator(
+            "wm.install_workspace", icon="FILE_TICK", text="워크스페이스 설치"
+        )
+
+        # 환경설정
         layout.prop(self, "evbh_export_vb")
         if self.evbh_export_vb:
             layout.prop(self, "evbh_export_vb_use")
