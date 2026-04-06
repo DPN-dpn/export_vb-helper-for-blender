@@ -21,18 +21,18 @@ class EVBH_OT_auto_link(Operator):
         asset_nodes = [
             n
             for n in node_tree.nodes
-            if getattr(n.__class__, "bl_idname", "") == "AssetSlotNode"
+            if getattr(n.__class__, "bl_idname", "") == "EVBH_AssetSlotNode"
         ]
         mod_nodes = [
             n
             for n in node_tree.nodes
-            if getattr(n.__class__, "bl_idname", "") == "ModFileNode"
+            if getattr(n.__class__, "bl_idname", "") == "EVBH_ModFileNode"
         ]
         result_node = next(
             (
                 n
                 for n in node_tree.nodes
-                if getattr(n.__class__, "bl_idname", "") == "ResultNode"
+                if getattr(n.__class__, "bl_idname", "") == "EVBH_ResultNode"
             ),
             None,
         )
@@ -89,7 +89,7 @@ class EVBH_OT_auto_link(Operator):
             if asset_had_link:
                 assets_with_links.add(a)
 
-        # ResultNode에 연결 (각 자산에 대해 Result 출력 -> ResultNode의 비어있는 입력)
+        # EVBH_ResultNode에 연결 (각 자산에 대해 Result 출력 -> EVBH_ResultNode의 비어있는 입력)
         if result_node:
             for a in assets_with_links:
                 # 자산의 Result 출력 찾기
@@ -97,7 +97,7 @@ class EVBH_OT_auto_link(Operator):
                     (
                         s
                         for s in a.outputs
-                        if getattr(s.__class__, "bl_idname", "") == "ResultSocket"
+                        if getattr(s.__class__, "bl_idname", "") == "EVBH_ResultSocket"
                     ),
                     None,
                 )
@@ -110,7 +110,7 @@ class EVBH_OT_auto_link(Operator):
                 if target_in is None:
                     try:
                         target_in = result_node.inputs.new(
-                            "ResultSocket", f"Data {len(result_node.inputs) + 1}"
+                            "EVBH_ResultSocket", f"Data {len(result_node.inputs) + 1}"
                         )
                     except Exception:
                         continue

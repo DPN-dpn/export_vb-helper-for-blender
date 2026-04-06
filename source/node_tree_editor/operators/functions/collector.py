@@ -34,7 +34,7 @@ def collect_result_mappings(node_tree, asset_name):
     if node_tree is None:
         return []
 
-    # ResultNode 찾기
+    # EVBH_ResultNode 찾기
     result_node = next(
         (n for n in node_tree.nodes if getattr(n, "bl_idname", "") == "EVBH_ResultNode"),
         None,
@@ -73,7 +73,7 @@ def collect_result_mappings(node_tree, asset_name):
                 "mods": [],
             }
 
-            # AssetSlotNode의 각 입력 소켓(Asset이 받는 각 슬롯)에 연결된 링크들을 검사
+            # EVBH_AssetSlotNode의 각 입력 소켓(Asset이 받는 각 슬롯)에 연결된 링크들을 검사
             for a_input in getattr(asset_node, "inputs", []):
                 for link2 in list(getattr(a_input, "links", [])):
                     mod_node = getattr(link2, "from_node", None)
