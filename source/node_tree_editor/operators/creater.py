@@ -193,6 +193,41 @@ def _create_mod_nodes(op, tree):
 
         socket_count = 0
 
+        def _find_hash_recursive(start_sec, visited=None):
+            if visited is None:
+                visited = set()
+            if start_sec in visited:
+                return None
+            visited.add(start_sec)
+
+            lines0 = sections.get(start_sec, []) or []
+            # 직접 hash가 있는지 확인
+            for ln_h in lines0:
+                m2 = re.match(r"^\s*hash\s*=\s*(.+)$", ln_h, re.IGNORECASE)
+                if m2:
+                    hv = m2.group(1).strip()
+                    hv = re.split(r";|#", hv)[0].strip().strip('"')
+                    if hv:
+                        return hv
+
+            # CommandList 계열 섹션인 경우, 이 섹션을 run = <start_sec>로 호출하는 섹션을 찾아 재귀
+            if start_sec.lower().startswith("commandlist"):
+                for other_n, other_ls in sections.items():
+                    if other_n == start_sec:
+                        continue
+                    for ln_r in other_ls:
+                        mm = re.match(r"^(?P<k>[^=]+)=\s*(?P<v>.+)$", ln_r)
+                        if not mm:
+                            continue
+                        k_r = mm.group("k").strip().lower()
+                        v_r = mm.group("v").strip()
+                        v_clean_r = re.split(r";|#", v_r)[0].strip().strip('"')
+                        if k_r == "run" and v_clean_r == start_sec:
+                            hv2 = _find_hash_recursive(other_n, visited)
+                            if hv2:
+                                return hv2
+            return None
+
         for sec_name, lines in sections.items():
             # Resource로 시작하는 섹션을 대상으로 함 (대소문자 무시)
             if not sec_name.lower().startswith("resource"):
@@ -237,7 +272,6 @@ def _create_mod_nodes(op, tree):
                     v = m.group("v").strip()
                     v_clean = re.split(r";|#", v)[0].strip().strip('"')
                     if v_clean == sec_name:
-                        # 단순 매핑: 'ib'/'vb2'/'vb0'/'vb1'
                         if k == "ib":
                             socket_type = "EVBH_IBSocket"
                         elif k == "vb2":
@@ -247,19 +281,14 @@ def _create_mod_nodes(op, tree):
                         elif k == "vb1":
                             socket_type = "EVBH_TexcoordSocket"
 
-                        # 참조 섹션에서 hash 값 추출
-                        for ln2 in other_lines:
-                            m2 = re.match(r"^\s*hash\s*=\s*(.+)$", ln2, re.IGNORECASE)
-                            if m2:
-                                hv = m2.group(1).strip()
-                                hv = re.split(r";|#", hv)[0].strip().strip('"')
-                                hash_val = hv
-                                break
+                        if socket_type:
+                            # 참조 섹션(other_name)에서 직접 hash를 찾고,
+                            # 없고 CommandList 계열이면 run=... 참조로 거슬러 올라가서 찾음
+                            hash_val = _find_hash_recursive(other_name)
                         break
                 if socket_type:
                     break
 
-            # 매핑되는 소켓 타입이 없으면 이 섹션 건너뜀
             if socket_type is None:
                 continue
 
