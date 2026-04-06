@@ -92,7 +92,7 @@ class EVBH_OT_DoUpdate(Operator):
                     elif os.path.isdir(file_path):
                         shutil.rmtree(file_path)
                 except Exception as e:
-                    self.report({"ERROR"}, f"{file_path} 폴더를 비우지 못했습니다.")
+                    self.report({"ERROR"}, f"{file_path} 폴더를 비우지 못했습니다.: {e}")
 
             # zip 파일 압축 해제 (애드온 폴더에 덮어쓰기)
             with zipfile.ZipFile(zip_path, "r") as zip_ref:

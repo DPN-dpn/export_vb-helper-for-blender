@@ -111,9 +111,9 @@ def _replace_relational_logic(op, order, sections):
     return order, sections
 
 
-def postprocess_ini(op, ini_contents):
+def preprocess_ini(op, ini_contents):
     if not ini_contents:
-        op.report({"INFO"}, "후처리할 ini_contents가 없습니다")
+        op.report({"INFO"}, "전처리할 ini_contents가 없습니다")
         return ini_contents
 
     order = list(ini_contents.get("order", []) or [])

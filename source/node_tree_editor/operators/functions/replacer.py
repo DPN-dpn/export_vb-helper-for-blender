@@ -37,7 +37,7 @@ def replace_strings(op, ini_contents, matchings):
         {"INFO"}, f"replace_strings 시작: 섹션={len(order)}, 매칭파일={len(matchings)}"
     )
 
-    # 1) filename 라인에서 원문을 토큰으로 바꾸고(원문 -> 토큰), 섹션명 변경대상 수집
+    # filename 라인에서 원문을 토큰으로 바꾸고(원문 -> 토큰), 섹션명 변경대상 수집
     for sec_name in list(order):
         lines = sections.get(sec_name, []) or []
         new_lines = list(lines)
@@ -120,7 +120,7 @@ def replace_strings(op, ini_contents, matchings):
         if modified:
             sections[sec_name] = new_lines
 
-    # 2) 모든 토큰 -> 최종 문자열 치환 (토큰화로 인한 충돌 방지 후 최종 적용)
+    # 모든 토큰 -> 최종 문자열 치환 (토큰화로 인한 충돌 방지 후 최종 적용)
     if token_to_final:
         for sn, lines in sections.items():
             for i, ln in enumerate(lines):
@@ -132,7 +132,7 @@ def replace_strings(op, ini_contents, matchings):
                     lines[i] = new_ln
             sections[sn] = lines
 
-    # 3) 섹션명 변경 처리 (기존 로직 유지)
+    # 섹션명 변경 처리 (기존 로직 유지)
     if section_renames:
         token_for_old = {
             old: f"__EVBH_SEC_TOKEN_{uuid.uuid4().hex}__"

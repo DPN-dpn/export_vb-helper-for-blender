@@ -5,7 +5,7 @@ from bpy_extras.io_utils import ImportHelper
 import os
 import re
 import shutil
-from .functions import ini_parser, collector, replacer, postprocessor, run_export_vb
+from .functions import ini_parser, collector, preprocessor, replacer, run_export_vb
 
 
 def select_export_path(context, path: str) -> str:
@@ -303,11 +303,11 @@ class EVBH_OT_export_mod(Operator, ImportHelper):
         # 교체할 문자열 매칭 모으기
         matchings, asset_name = collector.collect_matching_strings(mappings)
 
+        # ini 전처리
+        ini_contents = preprocessor.preprocess_ini(self, ini_contents)
+
         # ini 문자열 교체
         ini_contents = replacer.replace_strings(self, ini_contents, matchings)
-
-        # ini 후처리
-        ini_contents = postprocessor.postprocess_ini(self, ini_contents)
 
         # 내보내기 파일 생성 (matchings 사용해서 파일명 변경도 처리)
         export_dir = create_exported_files(
