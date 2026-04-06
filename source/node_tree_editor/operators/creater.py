@@ -311,7 +311,7 @@ def _create_mod_texture_sockets(node, sections):
                 filename = v.strip('"')
 
         # 텍스처 확장자 조건
-        if not filename.lower().endswith((".dds", ".jpg", ".png")):
+        if not (filename and filename.lower().endswith((".dds", ".jpg", ".png"))):
             continue
 
         # 소켓 라벨은 filename 이나 섹션 이름

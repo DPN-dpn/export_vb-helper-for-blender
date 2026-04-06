@@ -4,6 +4,15 @@ import subprocess
 import sys
 
 
+def _same_path(a, b):
+    try:
+        return os.path.normcase(os.path.abspath(a)) == os.path.normcase(
+            os.path.abspath(b)
+        )
+    except Exception:
+        return False
+
+
 def run_export_vb(op, evbh_export_vb, export_dir, asset_path):
     if not evbh_export_vb:
         op.report({"WARNING"}, "export_vb 경로가 설정되지 않음")
@@ -49,10 +58,15 @@ def run_export_vb(op, evbh_export_vb, export_dir, asset_path):
         dest_asset_root = os.path.join(base_dir, "asset")
         os.makedirs(dest_asset_root, exist_ok=True)
         dest_asset_sub = os.path.join(dest_asset_root, os.path.basename(asset_src_dir))
-        if os.path.exists(dest_asset_sub):
-            shutil.rmtree(dest_asset_sub)
-        shutil.copytree(asset_src_dir, dest_asset_sub)
-        created_paths.append(dest_asset_sub)
+        # 소스와 대상이 같으면 복사 생략
+        if not _same_path(asset_src_dir, dest_asset_sub):
+            if os.path.exists(dest_asset_sub):
+                if os.path.isdir(dest_asset_sub):
+                    shutil.rmtree(dest_asset_sub)
+                else:
+                    os.remove(dest_asset_sub)
+            shutil.copytree(asset_src_dir, dest_asset_sub)
+            created_paths.append(dest_asset_sub)
 
         # 2) mods로 내보내진 폴더 이동
         dest_mods_root = os.path.join(base_dir, "mods")
@@ -60,12 +74,14 @@ def run_export_vb(op, evbh_export_vb, export_dir, asset_path):
         dest_mod = os.path.join(
             dest_mods_root, os.path.basename(os.path.normpath(export_dir))
         )
-        if os.path.exists(dest_mod):
-            if os.path.isdir(dest_mod):
-                shutil.rmtree(dest_mod)
-            else:
-                os.remove(dest_mod)
-        shutil.move(export_dir, dest_mod)
+        # 소스와 대상이 같으면 이동 생략
+        if not _same_path(export_dir, dest_mod):
+            if os.path.exists(dest_mod):
+                if os.path.isdir(dest_mod):
+                    shutil.rmtree(dest_mod)
+                else:
+                    os.remove(dest_mod)
+            shutil.move(export_dir, dest_mod)
 
         # 3) export_vb.py 실행
         try:
@@ -90,9 +106,7 @@ def run_export_vb(op, evbh_export_vb, export_dir, asset_path):
         # 4) output 폴더의 결과를 원래 내보내기 부모 폴더로 이동
         output_dir = os.path.join(base_dir, "output")
         target_parent = os.path.dirname(os.path.normpath(export_dir))
-        if os.path.abspath(output_dir) == os.path.abspath(target_parent):
-            op.report({"INFO"}, "output과 대상 폴더가 동일하여 이동을 건너뜁니다")
-        else:
+        if not _same_path(output_dir, target_parent):
             if os.path.isdir(output_dir):
                 for name in os.listdir(output_dir):
                     src = os.path.join(output_dir, name)
@@ -115,18 +129,20 @@ def run_export_vb(op, evbh_export_vb, export_dir, asset_path):
         # 정리: 생성한 복사본 제거 및 이동한 mods 제거
         for p in created_paths:
             try:
-                if os.path.isdir(p):
-                    shutil.rmtree(p)
-                elif os.path.exists(p):
-                    os.remove(p)
+                if not _same_path(p, asset_src_dir):
+                    if os.path.isdir(p):
+                        shutil.rmtree(p)
+                    elif os.path.exists(p):
+                        os.remove(p)
             except Exception:
                 pass
         try:
             if dest_mod and os.path.exists(dest_mod):
-                if os.path.isdir(dest_mod):
-                    shutil.rmtree(dest_mod)
-                else:
-                    os.remove(dest_mod)
+                if not _same_path(dest_mod, export_dir):
+                    if os.path.isdir(dest_mod):
+                        shutil.rmtree(dest_mod)
+                    else:
+                        os.remove(dest_mod)
         except Exception:
             pass
 
