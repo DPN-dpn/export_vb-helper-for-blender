@@ -14,10 +14,10 @@ class EVBH_PT_Updater(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        latest_version = scene.get("latest_version", "")
-        current_version = scene.get("current_version", "")
-        update_available = scene.get("update_available", False)
-        show_restart = scene.get("show_restart", False)
+        latest_version = scene.get("evbh.latest_version", "")
+        current_version = scene.get("evbh.current_version", "")
+        update_available = scene.get("evbh.update_available", False)
+        show_restart = scene.get("evbh.show_restart", False)
 
         # 버튼 라벨 조건 분기
         if not latest_version:
