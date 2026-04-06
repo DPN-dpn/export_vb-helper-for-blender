@@ -32,9 +32,7 @@ class EVBHPreferences(bpy.types.AddonPreferences):
 
         # 작업영역 추가
         row = layout.row(align=True)
-        row.operator(
-            "wm.install_workspace", icon="FILE_TICK", text="작업영역 추가"
-        )
+        row.operator("evbh.install_workspace", icon="FILE_TICK", text="작업영역 추가")
 
         # 환경설정
         layout.prop(self, "evbh_export_vb")
