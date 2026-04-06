@@ -1,6 +1,6 @@
 import bpy
 from bpy.props import StringProperty, BoolProperty
-from ..node_tree_editor.tree import EVBHNodeTree
+from ..node_tree_editor.tree import EVBH_NodeTree
 
 
 def prop_update(self, context):
@@ -19,13 +19,13 @@ def apply_texture_sockets_toggle(show: bool):
     key = "_evbh_saved_texture_sockets"
 
     for ng in bpy.data.node_groups:
-        if getattr(ng, "bl_idname", "") != EVBHNodeTree.bl_idname:
+        if getattr(ng, "bl_idname", "") != EVBH_NodeTree.bl_idname:
             continue
         for node in ng.nodes:
             if not show:
                 saved = []
                 for s in list(node.inputs):
-                    if getattr(s.__class__, "bl_idname", "") == "INI_TextureSocket":
+                    if getattr(s.__class__, "bl_idname", "") == "EVBH_TextureSocket":
                         saved.append(
                             {
                                 "is_output": False,
@@ -38,7 +38,7 @@ def apply_texture_sockets_toggle(show: bool):
                         except Exception:
                             pass
                 for s in list(node.outputs):
-                    if getattr(s.__class__, "bl_idname", "") == "INI_TextureSocket":
+                    if getattr(s.__class__, "bl_idname", "") == "EVBH_TextureSocket":
                         saved.append(
                             {
                                 "is_output": True,
@@ -62,11 +62,11 @@ def apply_texture_sockets_toggle(show: bool):
                         try:
                             if info.get("is_output"):
                                 new_sock = node.outputs.new(
-                                    "INI_TextureSocket", info.get("name", "Texture")
+                                    "EVBH_TextureSocket", info.get("name", "Texture")
                                 )
                             else:
                                 new_sock = node.inputs.new(
-                                    "INI_TextureSocket", info.get("name", "Texture")
+                                    "EVBH_TextureSocket", info.get("name", "Texture")
                                 )
                             if new_sock is not None and info.get("hash") is not None:
                                 try:

@@ -32,8 +32,8 @@ def _install_workspace_helper(target_name=TARGET_NAME, blend_filename=BLEND_FILE
         return False, str(e)
 
 
-class WM_OT_install_workspace(bpy.types.Operator):
-    bl_idname = "wm.install_workspace"
+class EVBH_OT_install_workspace(bpy.types.Operator):
+    bl_idname = "evbh.install_workspace"
     bl_label = "작업공간 설치"
     bl_description = "'엵툵 도우미' 작업공간을 설치합니다"
 
@@ -47,7 +47,7 @@ class WM_OT_install_workspace(bpy.types.Operator):
             return {"CANCELLED"}
 
 
-classes = (WM_OT_install_workspace,)
+classes = (EVBH_OT_install_workspace,)
 
 
 def _auto_install_timer():

@@ -6,24 +6,24 @@ def collect_result_mappings(node_tree, asset_name):
     수집된 매핑 정보:
     {'asset_name': 'AriaSkin',
     'inputs': [{'asset_node': [{'asset_node_name': 'Body',
-                                'asset_node_type': 'AssetSlotNode',
+                                'asset_node_type': 'EVBH_AssetSlotNode',
                                 'asset_socket_name': 'Result',
                                 'mods': [{'asset_input_class': '',
                                           'asset_input_hash': 'f84d5a49',
                                           'asset_input_name': 'Position',
                                           'mod_node_name': 'AriaDevil.ini',
-                                          'mod_node_type': 'ModFileNode',
+                                          'mod_node_type': 'EVBH_ModFileNode',
                                           'mod_socket_hash': '56eaff1c',
                                           'mod_socket_name': 'AriaDevilBodyPosition.buf',
-                                          'mod_socket_type': 'INI_PositionSocket'},
+                                          'mod_socket_type': 'EVBH_PositionSocket'},
                                          {'asset_input_class': 'A',
                                           'asset_input_hash': 'c6bb960b',
                                           'asset_input_name': 'IB',
                                           'mod_node_name': 'Body.ini',
-                                          'mod_node_type': 'ModFileNode',
+                                          'mod_node_type': 'EVBH_ModFileNode',
                                           'mod_socket_hash': 'c6bb960b',
                                           'mod_socket_name': 'AriaDevilBodyA.ib',
-                                          'mod_socket_type': 'INI_IBSocket'},
+                                          'mod_socket_type': 'EVBH_IBSocket'},
                                          ...
                                         ]}],
                 'input_index': 0,
@@ -36,7 +36,7 @@ def collect_result_mappings(node_tree, asset_name):
 
     # ResultNode 찾기
     result_node = next(
-        (n for n in node_tree.nodes if getattr(n, "bl_idname", "") == "ResultNode"),
+        (n for n in node_tree.nodes if getattr(n, "bl_idname", "") == "EVBH_ResultNode"),
         None,
     )
     if result_node is None:
@@ -180,7 +180,7 @@ def collect_matching_strings(mappings):
                 asset_input_class = mod.get("asset_input_class", "") or ""
 
                 # tail 결정 (기존 규칙을 참고하여 IB/Texture는 class 기반)
-                if sock_type in ("INI_IBSocket", "INI_TextureSocket"):
+                if sock_type in ("EVBH_IBSocket", "EVBH_TextureSocket"):
                     tail = asset_input_class or asset_input_name
                 else:
                     tail = asset_input_name
@@ -189,15 +189,15 @@ def collect_matching_strings(mappings):
                 orig_ext = os.path.splitext(orig_base)[1] or ""
 
                 # 확장자 규칙
-                if sock_type == "INI_IBSocket":
+                if sock_type == "EVBH_IBSocket":
                     ext = ".ib"
                 elif sock_type in (
-                    "INI_PositionSocket",
-                    "INI_BlendSocket",
-                    "INI_TexcoordSocket",
+                    "EVBH_PositionSocket",
+                    "EVBH_BlendSocket",
+                    "EVBH_TexcoordSocket",
                 ):
                     ext = ".buf"
-                elif sock_type == "INI_TextureSocket":
+                elif sock_type == "EVBH_TextureSocket":
                     ext = orig_ext or ""
                 else:
                     ext = orig_ext or ""

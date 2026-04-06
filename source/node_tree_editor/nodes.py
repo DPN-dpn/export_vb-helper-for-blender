@@ -2,8 +2,8 @@ import bpy
 from bpy.types import Node
 
 
-class ModFileNode(Node):
-    bl_idname = "ModFileNode"
+class EVBH_ModFileNode(Node):
+    bl_idname = "EVBH_ModFileNode"
     bl_label = "Mod File"
     bl_icon = "MATCLOTH"
     bl_width_default = 200
@@ -17,8 +17,8 @@ class ModFileNode(Node):
         self.color = (0.20, 0.17, 0.17)
 
 
-class AssetSlotNode(Node):
-    bl_idname = "AssetSlotNode"
+class EVBH_AssetSlotNode(Node):
+    bl_idname = "EVBH_AssetSlotNode"
     bl_label = "Asset Slot"
     bl_icon = "RNA"
     bl_width_default = 180
@@ -28,7 +28,7 @@ class AssetSlotNode(Node):
         return True
 
     def init(self, context):
-        self.outputs.new("ResultSocket", "Result")
+        self.outputs.new("EVBH_ResultSocket", "Result")
         self.use_custom_color = True
         self.color = (0.17, 0.17, 0.20)
 
@@ -45,8 +45,8 @@ class AssetSlotNode(Node):
                     pass
 
 
-class ResultNode(Node):
-    bl_idname = "ResultNode"
+class EVBH_ResultNode(Node):
+    bl_idname = "EVBH_ResultNode"
     bl_label = "Result"
     bl_icon = "GROUP"
     bl_width_default = 160
@@ -57,7 +57,7 @@ class ResultNode(Node):
         return True
 
     def init(self, context):
-        self.inputs.new("ResultSocket", "Result")
+        self.inputs.new("EVBH_ResultSocket", "Result")
         self.use_custom_color = True
         self.color = (0.10, 0.10, 0.10)
 
@@ -69,7 +69,7 @@ class ResultNode(Node):
                     self.inputs.remove(socket)
 
         if self.inputs[-1].is_linked:
-            new_socket = self.inputs.new("ResultSocket", f"Data {len(self.inputs) + 1}")
+            new_socket = self.inputs.new("EVBH_ResultSocket", f"Data {len(self.inputs) + 1}")
 
         for i, socket in enumerate(self.inputs):
             socket.name = f"Data {i + 1}"
@@ -77,13 +77,13 @@ class ResultNode(Node):
     def draw_buttons(self, context, layout):
         col = layout.column(align=True)
         col.enabled = any(socket.is_linked for socket in self.inputs)
-        col.operator("evhb.export_mod", text="내보내기", icon="EXPORT")
+        col.operator("evbh.export_mod", text="내보내기", icon="EXPORT")
 
 
 classes = (
-    ModFileNode,
-    AssetSlotNode,
-    ResultNode,
+    EVBH_ModFileNode,
+    EVBH_AssetSlotNode,
+    EVBH_ResultNode,
 )
 
 

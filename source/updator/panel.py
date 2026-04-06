@@ -4,9 +4,9 @@ from bpy.types import Panel
 
 
 # 업데이터 패널 UI
-class PT_Updater(Panel):
+class EVBH_PT_Updater(Panel):
     bl_label = "업데이트"
-    bl_idname = "PREP_PT_updater"
+    bl_idname = "EVBH_PT_updater"
     bl_space_type = "NODE_EDITOR"
     bl_region_type = "UI"
     bl_category = "엵툵 사전작업"
@@ -28,7 +28,7 @@ class PT_Updater(Panel):
             update_label = f"업데이트: {current_version} → {latest_version}"
 
         layout.operator(
-            "updater.check_update", text="업데이트 체크", icon="FILE_REFRESH"
+            "evbh.check_update", text="업데이트 체크", icon="FILE_REFRESH"
         )
         row = layout.row()
         if show_restart:
@@ -37,13 +37,13 @@ class PT_Updater(Panel):
             )
         else:
             row.enabled = bool(update_available)
-            row.operator("updater.do_update", text=update_label, icon="IMPORT")
-        layout.operator("updater.open_github", text="GitHub", icon="URL")
+            row.operator("evbh.do_update", text=update_label, icon="IMPORT")
+        layout.operator("evbh.open_github", text="GitHub", icon="URL")
 
 
 def register():
-    bpy.utils.register_class(PT_Updater)
+    bpy.utils.register_class(EVBH_PT_Updater)
 
 
 def unregister():
-    bpy.utils.unregister_class(PT_Updater)
+    bpy.utils.unregister_class(EVBH_PT_Updater)

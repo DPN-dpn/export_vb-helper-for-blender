@@ -19,8 +19,8 @@ def _redraw_ui_regions(context):
 
 
 # 업데이트 체크
-class OT_CheckUpdate(Operator):
-    bl_idname = "updater.check_update"
+class EVBH_OT_CheckUpdate(Operator):
+    bl_idname = "evbh.check_update"
     bl_label = "업데이트 체크"
     bl_description = "최신 버전이 있는지 확인합니다"
 
@@ -54,8 +54,8 @@ class OT_CheckUpdate(Operator):
 
 
 # 업데이트 실행
-class OT_DoUpdate(Operator):
-    bl_idname = "updater.do_update"
+class EVBH_OT_DoUpdate(Operator):
+    bl_idname = "evbh.do_update"
     bl_label = "업데이트"
     bl_description = "애드온을 최신 버전으로 업데이트합니다"
 
@@ -113,8 +113,8 @@ class OT_DoUpdate(Operator):
 
 
 # GitHub 이동
-class OT_OpenGithub(Operator):
-    bl_idname = "updater.open_github"
+class EVBH_OT_OpenGithub(Operator):
+    bl_idname = "evbh.open_github"
     bl_label = "GitHub"
     bl_description = "애드온의 GitHub 페이지를 엽니다"
 
@@ -127,9 +127,9 @@ class OT_OpenGithub(Operator):
 
 
 classes = (
-    OT_CheckUpdate,
-    OT_DoUpdate,
-    OT_OpenGithub,
+    EVBH_OT_CheckUpdate,
+    EVBH_OT_DoUpdate,
+    EVBH_OT_OpenGithub,
 )
 
 

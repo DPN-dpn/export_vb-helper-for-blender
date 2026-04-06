@@ -2,8 +2,8 @@ import bpy
 from bpy.types import Operator
 
 
-class EVHB_OT_auto_link(Operator):
-    bl_idname = "evhb.auto_link"
+class EVBH_OT_auto_link(Operator):
+    bl_idname = "evbh.auto_link"
     bl_label = "자동 연결"
     bl_description = "노드 트리를 자동으로 연결합니다"
 
@@ -133,8 +133,8 @@ class EVHB_OT_auto_link(Operator):
         return {"FINISHED"}
 
 
-class EVHB_OT_unlink(Operator):
-    bl_idname = "evhb.unlink"
+class EVBH_OT_unlink(Operator):
+    bl_idname = "evbh.unlink"
     bl_label = "링크 해제"
     bl_description = "노드 트리의 모든 링크를 해제합니다"
 
@@ -155,7 +155,7 @@ class EVHB_OT_unlink(Operator):
         return {"FINISHED"}
 
 
-classes = (EVHB_OT_auto_link, EVHB_OT_unlink)
+classes = (EVBH_OT_auto_link, EVBH_OT_unlink)
 
 
 def register():

@@ -14,8 +14,8 @@ def _read_file_text(path: str) -> str:
         return f"# 파일을 읽는 데 실패했습니다: {path}\n# 오류: {e}\n"
 
 
-class EVHB_OT_select_asset(Operator, ImportHelper):
-    bl_idname = "evhb.select_asset"
+class EVBH_OT_select_asset(Operator, ImportHelper):
+    bl_idname = "evbh.select_asset"
     bl_label = "hash.json 선택"
     bl_description = "에셋 hash.json 파일을 선택하세요"
 
@@ -35,8 +35,8 @@ class EVHB_OT_select_asset(Operator, ImportHelper):
         return {"FINISHED"}
 
 
-class EVHB_OT_select_mod(Operator, ImportHelper):
-    bl_idname = "evhb.select_mod"
+class EVBH_OT_select_mod(Operator, ImportHelper):
+    bl_idname = "evbh.select_mod"
     bl_label = "모드 폴더 선택"
     bl_description = "모드 폴더를 선택하세요"
 
@@ -93,8 +93,8 @@ class EVHB_OT_select_mod(Operator, ImportHelper):
         return {"FINISHED"}
 
 
-class EVHB_OT_unlink_asset(Operator):
-    bl_idname = "evhb.unlink_asset"
+class EVBH_OT_unlink_asset(Operator):
+    bl_idname = "evbh.unlink_asset"
     bl_label = "언링크 에셋"
     bl_description = "불러온 에셋 텍스트 블록을 삭제하고 경로를 지웁니다"
 
@@ -105,8 +105,8 @@ class EVHB_OT_unlink_asset(Operator):
         return {"FINISHED"}
 
 
-class EVHB_OT_unlink_mod(Operator):
-    bl_idname = "evhb.unlink_mod"
+class EVBH_OT_unlink_mod(Operator):
+    bl_idname = "evbh.unlink_mod"
     bl_label = "언링크 모드"
     bl_description = "불러온 모드 텍스트 블록들을 삭제하고 경로를 지웁니다"
 
@@ -118,10 +118,10 @@ class EVHB_OT_unlink_mod(Operator):
 
 
 classes = (
-    EVHB_OT_select_asset,
-    EVHB_OT_select_mod,
-    EVHB_OT_unlink_asset,
-    EVHB_OT_unlink_mod,
+    EVBH_OT_select_asset,
+    EVBH_OT_select_mod,
+    EVBH_OT_unlink_asset,
+    EVBH_OT_unlink_mod,
 )
 
 

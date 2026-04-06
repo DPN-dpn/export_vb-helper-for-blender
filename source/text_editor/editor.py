@@ -1,5 +1,5 @@
 import bpy
-from ..node_tree_editor.tree import EVBHNodeTree
+from ..node_tree_editor.tree import EVBH_NodeTree
 
 _original_node_header_draw = None
 
@@ -17,17 +17,17 @@ def _workspace_has_evbhnodetree(context) -> bool:
         node_tree = getattr(space, "node_tree", None)
         if node_tree is not None:
             bt = getattr(type(node_tree), "bl_idname", None)
-            if bt == EVBHNodeTree.bl_idname:
+            if bt == EVBH_NodeTree.bl_idname:
                 return True
 
         # 2) 일부 API/버전에서는 tree_type 또는 tree_id 같은 속성을 사용
         tree_type = getattr(space, "tree_type", None)
-        if tree_type == EVBHNodeTree.bl_idname:
+        if tree_type == EVBH_NodeTree.bl_idname:
             return True
 
         # 3) 안전망: space 자체에 ui_type/other 식별자가 있을 수 있음
         ui_type = getattr(area, "ui_type", None)
-        if ui_type == EVBHNodeTree.bl_idname:
+        if ui_type == EVBH_NodeTree.bl_idname:
             return True
 
 

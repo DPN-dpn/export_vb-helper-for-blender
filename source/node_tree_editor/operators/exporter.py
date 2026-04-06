@@ -251,8 +251,8 @@ def create_exported_files(
     return export_dir
 
 
-class EVHB_OT_export_mod(Operator, ImportHelper):
-    bl_idname = "evhb.export_mod"
+class EVBH_OT_export_mod(Operator, ImportHelper):
+    bl_idname = "evbh.export_mod"
     bl_label = "내보내기"
     bl_description = "사전작업을 적용한 모드를 내보냅니다"
 
@@ -326,7 +326,7 @@ class EVHB_OT_export_mod(Operator, ImportHelper):
         return {"FINISHED"}
 
 
-classes = (EVHB_OT_export_mod,)
+classes = (EVBH_OT_export_mod,)
 
 
 def register():

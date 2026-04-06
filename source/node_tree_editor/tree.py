@@ -2,8 +2,8 @@ import bpy
 from bpy.types import NodeTree
 
 
-class EVBHNodeTree(NodeTree):
-    bl_idname = "EVBHNodeTree"
+class EVBH_NodeTree(NodeTree):
+    bl_idname = "EVBH_NodeTree"
     bl_label = "엵툵 사전작업 노드 에디터"
     bl_icon = "NODETREE"
 
@@ -12,7 +12,7 @@ class EVBHNodeTree(NodeTree):
         return True
 
 
-classes = (EVBHNodeTree,)
+classes = (EVBH_NodeTree,)
 
 
 def register():

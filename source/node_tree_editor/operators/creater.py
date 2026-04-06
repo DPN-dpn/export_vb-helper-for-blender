@@ -7,6 +7,7 @@ from ...data import text_data_block
 from ...core import properties as prep_properties
 from .functions.ini_parser import parse_ini
 
+
 def _find_first_node_editor_space(context):
     # Find a NODE_EDITOR area in the current screen and return its space.
     screen = context.window.screen
@@ -45,7 +46,7 @@ def _create_asset_nodes(op, tree):
 
         for comp in data:
             name = comp.get("component_name", "Component")
-            node = tree.nodes.new("AssetSlotNode")
+            node = tree.nodes.new("EVBH_AssetSlotNode")
             node.name = name
             try:
                 node.label = name
@@ -61,10 +62,12 @@ def _create_asset_nodes(op, tree):
             for key in ("position_vb", "blend_vb", "texcoord_vb"):
                 display = name_map.get(key, key)
                 socket_type = (
-                    "INI_PositionSocket"
+                    "EVBH_PositionSocket"
                     if key == "position_vb"
                     else (
-                        "INI_BlendSocket" if key == "blend_vb" else "INI_TexcoordSocket"
+                        "EVBH_BlendSocket"
+                        if key == "blend_vb"
+                        else "EVBH_TexcoordSocket"
                     )
                 )
                 sock = node.inputs.new(socket_type, display)
@@ -80,7 +83,7 @@ def _create_asset_nodes(op, tree):
             classifications = comp.get("object_classifications", [])
             for c in classifications:
                 socket_name = f"IB_{c}"
-                sock = node.inputs.new("INI_IBSocket", socket_name)
+                sock = node.inputs.new("EVBH_IBSocket", socket_name)
                 socket_count += 1
                 ib_hint = comp.get("ib", "")
                 if ib_hint is None:
@@ -148,7 +151,7 @@ def _create_asset_texture_sockets(node, comp):
                 node[key] = saved
                 continue
 
-            in_sock = node.inputs.new("INI_TextureSocket", socket_label)
+            in_sock = node.inputs.new("EVBH_TextureSocket", socket_label)
             texture_count += 1
             if hv:
                 in_sock["hash"] = str(hv)
@@ -181,7 +184,7 @@ def _create_mod_nodes(op, tree):
         order, sections = parse_ini(content)
 
         # ini 파일 하나당 노드 하나 생성
-        node = tree.nodes.new("ModFileNode")
+        node = tree.nodes.new("EVBH_ModFileNode")
         node.name = text_name
         try:
             node.label = text_name
@@ -236,13 +239,13 @@ def _create_mod_nodes(op, tree):
                     if v_clean == sec_name:
                         # 단순 매핑: 'ib'/'vb2'/'vb0'/'vb1'
                         if k == "ib":
-                            socket_type = "INI_IBSocket"
+                            socket_type = "EVBH_IBSocket"
                         elif k == "vb2":
-                            socket_type = "INI_BlendSocket"
+                            socket_type = "EVBH_BlendSocket"
                         elif k == "vb0":
-                            socket_type = "INI_PositionSocket"
+                            socket_type = "EVBH_PositionSocket"
                         elif k == "vb1":
-                            socket_type = "INI_TexcoordSocket"
+                            socket_type = "EVBH_TexcoordSocket"
 
                         # 참조 섹션에서 hash 값 추출
                         for ln2 in other_lines:
@@ -360,7 +363,7 @@ def _create_mod_texture_sockets(node, sections):
             continue
 
         # 소켓 생성
-        out_sock = node.outputs.new("INI_TextureSocket", socket_label)
+        out_sock = node.outputs.new("EVBH_TextureSocket", socket_label)
         texture_count += 1
         if hash_val:
             out_sock["hash"] = str(hash_val)
@@ -369,7 +372,7 @@ def _create_mod_texture_sockets(node, sections):
 
 
 def _create_result_node(tree):
-    node = tree.nodes.new("ResultNode")
+    node = tree.nodes.new("EVBH_ResultNode")
     node.name = "Result"
     try:
         node.label = "Result"
@@ -378,16 +381,15 @@ def _create_result_node(tree):
     node.location = (330, 0)
 
 
-class EVHB_OT_create_new_tree(Operator):
-
-    bl_idname = "evhb.create_new_tree"
+class EVBH_OT_create_new_tree(Operator):
+    bl_idname = "evbh.create_new_tree"
     bl_label = "슬롯 매칭 시작하기"
     bl_description = "불러온 에셋/모드 파일로 슬롯 매칭을 시작합니다"
 
     name: StringProperty(name="Name", default="EVBH Graph")
 
     def execute(self, context):
-        # 먼저 현재 화면에서 열려있는 EVBHNodeTree 인스턴스들을 언링크하고 데이터블록에서 제거합니다.
+        # 먼저 현재 화면에서 열려있는 EVBH_NodeTree 인스턴스들을 언링크하고 데이터블록에서 제거합니다.
         opened_groups = set()
         for win in bpy.context.window_manager.windows:
             for area in win.screen.areas:
@@ -412,8 +414,8 @@ class EVHB_OT_create_new_tree(Operator):
                 bpy.data.node_groups.remove(ng)
 
         # 노드트리 생성
-        tree = bpy.data.node_groups.new(self.name, "EVBHNodeTree")
-        
+        tree = bpy.data.node_groups.new(self.name, "EVBH_NodeTree")
+
         scene = context.scene
         scene.evbh_current_asset_path = getattr(scene, "evbh_asset_path", "") or ""
         scene.evbh_current_mod_path = getattr(scene, "evbh_mod_path", "") or ""
@@ -440,7 +442,7 @@ class EVHB_OT_create_new_tree(Operator):
         return {"FINISHED"}
 
 
-classes = (EVHB_OT_create_new_tree,)
+classes = (EVBH_OT_create_new_tree,)
 
 
 def register():
