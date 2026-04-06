@@ -2,7 +2,7 @@
 bl_info = {
     "name": "엵툵 도우미",
     "author": "DPN",
-    "version": (0, 4, 4),
+    "version": (0, 5, 0),
     "blender": (3, 6, 23),
     "location": "상단 작업공간 메뉴 > 작업공간을 추가 > 엵툵",
     "description": "export_vb.py를 보조하는 블렌더용 애드온입니다.",
