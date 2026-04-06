@@ -90,21 +90,26 @@ def run_export_vb(op, evbh_export_vb, export_dir, asset_path):
         # 4) output 폴더의 결과를 원래 내보내기 부모 폴더로 이동
         output_dir = os.path.join(base_dir, "output")
         target_parent = os.path.dirname(os.path.normpath(export_dir))
-        if os.path.isdir(output_dir):
-            for name in os.listdir(output_dir):
-                src = os.path.join(output_dir, name)
-                dst = os.path.join(target_parent, name)
-                try:
-                    if os.path.exists(dst):
-                        if os.path.isdir(dst):
-                            shutil.rmtree(dst)
-                        else:
-                            os.remove(dst)
-                    shutil.move(src, dst)
-                except Exception as e:
-                    op.report({"WARNING"}, f"output 이동 실패: {src} -> {dst} ({e})")
+        if os.path.abspath(output_dir) == os.path.abspath(target_parent):
+            op.report({"INFO"}, "output과 대상 폴더가 동일하여 이동을 건너뜁니다")
         else:
-            op.report({"WARNING"}, f"output 폴더를 찾지 못함: {output_dir}")
+            if os.path.isdir(output_dir):
+                for name in os.listdir(output_dir):
+                    src = os.path.join(output_dir, name)
+                    dst = os.path.join(target_parent, name)
+                    try:
+                        if os.path.exists(dst):
+                            if os.path.isdir(dst):
+                                shutil.rmtree(dst)
+                            else:
+                                os.remove(dst)
+                        shutil.move(src, dst)
+                    except Exception as e:
+                        op.report(
+                            {"WARNING"}, f"output 이동 실패: {src} -> {dst} ({e})"
+                        )
+            else:
+                op.report({"WARNING"}, f"output 폴더를 찾지 못함: {output_dir}")
 
     finally:
         # 정리: 생성한 복사본 제거 및 이동한 mods 제거
