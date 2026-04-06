@@ -30,23 +30,23 @@ class EVBH_OT_CheckUpdate(Operator):
             with urllib.request.urlopen(url, timeout=5) as response:
                 data = json.loads(response.read().decode())
                 latest_version = data.get("tag_name", "").lstrip("v")
-                context.scene["latest_version"] = latest_version
+                context.scene["evbh.latest_version"] = latest_version
                 # 현재 버전 가져오기
                 from ... import bl_info
 
                 current_version = ".".join(map(str, bl_info["version"]))
-                context.scene["current_version"] = current_version
-                context.scene["show_restart"] = False
+                context.scene["evbh.current_version"] = current_version
+                context.scene["evbh.show_restart"] = False
                 if latest_version and latest_version != current_version:
-                    context.scene["update_available"] = True
+                    context.scene["evbh.update_available"] = True
                     self.report(
                         {"INFO"}, f"업데이트 가능: {current_version} → {latest_version}"
                     )
                 else:
-                    context.scene["update_available"] = False
+                    context.scene["evbh.update_available"] = False
                     self.report({"INFO"}, "최신 버전입니다.")
         except Exception as e:
-            context.scene["update_available"] = False
+            context.scene["evbh.update_available"] = False
             self.report({"ERROR"}, f"업데이트 확인 실패: {e}")
 
         _redraw_ui_regions(context)
@@ -102,13 +102,13 @@ class EVBH_OT_DoUpdate(Operator):
             os.remove(zip_path)
 
             self.report({"WARNING"}, "블렌더를 재시작해, 애드온을 새로고침해 주세요.")
-            context.scene["show_restart"] = True
+            context.scene["evbh.show_restart"] = True
             _redraw_ui_regions(context)
             return {"FINISHED"}
 
         except Exception as e:
             self.report({"ERROR"}, f"업데이트 실패: {e}")
-            context.scene["show_restart"] = False
+            context.scene["evbh.show_restart"] = False
             return {"CANCELLED"}
 
 
