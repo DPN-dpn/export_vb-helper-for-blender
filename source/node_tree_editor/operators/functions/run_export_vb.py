@@ -85,9 +85,14 @@ def run_export_vb(op, evbh_export_vb, export_dir, asset_path):
 
         # 3) export_vb.py 실행
         try:
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8:replace"
+
+            cmd = [sys.executable, "-X", "utf8", script_path]  # -X utf8는 옵션(파이썬 3.7+)
             result = subprocess.run(
-                [sys.executable, script_path],
+                cmd,
                 cwd=base_dir,
+                env=env,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
