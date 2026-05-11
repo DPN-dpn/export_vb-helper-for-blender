@@ -36,7 +36,7 @@ def create_ini_contents(op, need_sockets):
             op.report({"WARNING"}, f"텍스트 데이터 블록을 찾지 못함: {mod_name}")
             continue
 
-        order, sections = ini_parser.parse_ini(text)
+        order, sections = ini_parser.parse_defunctionalized_ini(text)
 
         # 초기: Resource로 시작하는 섹션 중 filename= 값에 소켓이 포함된 섹션 수집
         initial = set()
