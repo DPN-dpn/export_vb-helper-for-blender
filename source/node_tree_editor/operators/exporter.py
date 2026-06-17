@@ -5,7 +5,7 @@ from bpy_extras.io_utils import ImportHelper
 import os
 import re
 import shutil
-from .functions import ini_parser, collector, preprocessor, replacer, run_export_vb
+from .functions import ini_parser, collector, preprocessor, replacer, run_export_vb, fmt_fixer
 
 
 def select_export_path(context, path: str) -> str:
@@ -319,6 +319,14 @@ class EVBH_OT_export_mod(Operator, ImportHelper):
 
         prefs = bpy.context.preferences.addons[addon_module_name()].preferences
         if prefs.evbh_export_vb_use and prefs.evbh_export_vb:
+            # 1) ini의 Resource stride를 vb0 element 기반으로 수정
+            fixed_ini = fmt_fixer.fix_ini_buf_strides(self, export_dir, asset_path)
+            if fixed_ini:
+                self.report({"INFO"}, f"총 {fixed_ini}개의 ini stride 값을 수정했습니다")
+            # 2) ini stride보다 짧은 .buf 파일을 0 패딩으로 재패킹
+            repacked = fmt_fixer.repack_short_buf_files(self, export_dir)
+            if repacked:
+                self.report({"INFO"}, f"총 {repacked}개의 buf 파일을 재패킹했습니다")
             run_export_vb.run_export_vb(
                 self, prefs.evbh_export_vb, export_dir, asset_path
             )
