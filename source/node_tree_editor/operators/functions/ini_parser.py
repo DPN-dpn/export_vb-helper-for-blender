@@ -20,16 +20,23 @@ def parse_ini(text):
         m = re.match(r"^\[(.+?)\]$", line)
         if m:
             if cur_name is not None:
-                sections[cur_name] = cur_lines
+                # 중복 섹션이면 첫 번째 섹션을 우선, 이후 섹션은 무시
+                if cur_name not in sections:
+                    sections[cur_name] = cur_lines
             cur_name = m.group(1)
-            order.append(cur_name)
-            cur_lines = []
+            # 중복 섹션명은 order에 한 번만 추가
+            if cur_name not in sections:
+                order.append(cur_name)
+                cur_lines = []
+            else:
+                cur_name = None  # 이미 존재하는 섹션 → 이하 내용 무시
+                cur_lines = []
             continue
         if cur_name is None:
             continue
         cur_lines.append(line)
 
-    if cur_name is not None:
+    if cur_name is not None and cur_name not in sections:
         sections[cur_name] = cur_lines
 
     return order, sections
