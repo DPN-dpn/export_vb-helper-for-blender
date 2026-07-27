@@ -89,6 +89,31 @@ def create_ini_contents(op, need_sockets):
                 if changed:
                     break
 
+        # 무조건 포함해야 하는 특수 섹션들 처리 (Constants, Present, Key~ 등)
+        # 및 Present 내부의 CommandList 참조 확인
+        for sec_name, lines in sections.items():
+            sec_lower = sec_name.lower()
+            if sec_lower == "constants" or sec_lower == "present" or sec_lower.startswith("key"):
+                found.add(sec_name)
+                
+                if sec_lower == "present":
+                    for ln in (lines or []):
+                        m = kv_re.match(ln)
+                        if not m:
+                            continue
+                        k = m.group("k").strip().lower()
+                        if k == "run":
+                            v = m.group("v").strip()
+                            v_clean = re.split(r";|#", v)[0].strip().strip('"').strip("'")
+                            if v_clean.lower().startswith("commandlist"):
+                                if v_clean in sections:
+                                    found.add(v_clean)
+                                else:
+                                    for s_name in sections.keys():
+                                        if s_name.lower() == v_clean.lower():
+                                            found.add(s_name)
+                                            break
+
         # 원래 순서를 유지하여 new_sections/new_order에 추가
         for nm in order:
             if nm in found and nm not in new_sections:
