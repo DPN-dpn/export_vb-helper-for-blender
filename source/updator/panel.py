@@ -39,6 +39,7 @@ class EVBH_PT_Updater(Panel):
             row.enabled = bool(update_available)
             row.operator("evbh.do_update", text=update_label, icon="IMPORT")
         layout.operator("evbh.open_github", text="GitHub", icon="URL")
+        layout.operator("evbh.open_wiki", text="Wiki", icon="HELP")
 
 
 def register():

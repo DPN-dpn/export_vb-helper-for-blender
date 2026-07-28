@@ -189,11 +189,24 @@ class EVBH_OT_OpenGithub(Operator):
         self.report({"INFO"}, "export_vb-helper-for-blender GitHub 페이지를 엽니다.")
         return {"FINISHED"}
 
+# Wiki 이동
+class EVBH_OT_OpenWiki(Operator):
+    bl_idname = "evbh.open_wiki"
+    bl_label = "Wiki"
+    bl_description = "애드온의 위키 페이지를 엽니다"
+
+    def execute(self, context):
+        import webbrowser
+
+        webbrowser.open("https://github.com/DPN-dpn/export_vb-helper-for-blender/wiki")
+        self.report({"INFO"}, "export_vb-helper-for-blender 위키 페이지를 엽니다.")
+        return {"FINISHED"}
 
 classes = (
     EVBH_OT_CheckUpdate,
     EVBH_OT_DoUpdate,
     EVBH_OT_OpenGithub,
+    EVBH_OT_OpenWiki,
 )
 
 
