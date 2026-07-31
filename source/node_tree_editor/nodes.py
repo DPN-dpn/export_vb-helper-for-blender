@@ -19,7 +19,7 @@ class EVBH_ModFileNode(Node):
 
 class EVBH_AssetSlotNode(Node):
     bl_idname = "EVBH_AssetSlotNode"
-    bl_label = "Asset Slot"
+    bl_label = ""
     bl_icon = "RNA"
     bl_width_default = 180
 

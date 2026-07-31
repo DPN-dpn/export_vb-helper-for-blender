@@ -65,7 +65,7 @@ def collect_result_mappings(node_tree, asset_name):
                 continue
 
             asset_entry = {
-                "asset_node_name": getattr(asset_node, "name", ""),
+                "asset_node_name": getattr(asset_node, "label", ""),
                 "asset_node_type": getattr(asset_node, "bl_idname", ""),
                 "asset_socket_name": (
                     getattr(asset_socket, "name", "") if asset_socket else ""

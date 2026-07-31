@@ -45,7 +45,7 @@ def _create_asset_nodes(op, tree):
             continue
 
         for comp in data:
-            name = comp.get("component_name", "Component")
+            name = comp.get("component_name", "")
             node = tree.nodes.new("EVBH_AssetSlotNode")
             node.name = name
             try:
