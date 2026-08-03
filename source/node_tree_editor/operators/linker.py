@@ -70,6 +70,12 @@ class EVBH_OT_auto_link(Operator):
                         continue
                     if str(inp_hash) != str(out_hash):
                         continue
+                    
+                    inp_cls = inp.get("classification", None)
+                    out_cls = out_sock.get("classification", None)
+                    if inp_cls is not None and out_cls is not None:
+                        if str(inp_cls) != str(out_cls):
+                            continue
                     # 이미 동일 소켓에 같은 링크가 있지 않은지 확인
                     already = any(
                         l.from_socket == out_sock and l.to_socket == inp

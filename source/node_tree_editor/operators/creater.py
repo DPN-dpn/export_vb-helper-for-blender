@@ -90,6 +90,7 @@ def _create_asset_nodes(op, tree):
                     ib_hint = ""
                 try:
                     sock["hash"] = str(ib_hint)
+                    sock["classification"] = str(c)
                 except Exception:
                     pass
 
@@ -155,6 +156,7 @@ def _create_asset_texture_sockets(node, comp):
             texture_count += 1
             if hv:
                 in_sock["hash"] = str(hv)
+            in_sock["classification"] = str(classification)
 
     return texture_count
 
@@ -185,9 +187,9 @@ def _create_mod_nodes(op, tree):
         except Exception:
             pass
 
-    def _resolve_real_hash(found_hash, target_key):
+    def _resolve_real_hash(found_hash, target_key, match_first_index=None):
         if not found_hash or not target_key:
-            return found_hash
+            return found_hash, None
             
         search_keys = ["position_vb", "blend_vb", "texcoord_vb", "ib", "draw_vb"]
         for comp in all_components:
@@ -195,8 +197,23 @@ def _create_mod_nodes(op, tree):
                 if comp.get(k) == found_hash:
                     # 발견된 컴포넌트에서 우리가 원하는 종류의 해시값을 반환
                     res = comp.get(target_key)
-                    return str(res) if res else found_hash
-        return found_hash
+                    res_hash = str(res) if res else found_hash
+                    
+                    classification = None
+                    if match_first_index is not None:
+                        try:
+                            mfi_val = int(match_first_index)
+                            idxs = comp.get("object_indexes", [])
+                            clsfs = comp.get("object_classifications", [])
+                            if mfi_val in idxs:
+                                idx_pos = idxs.index(mfi_val)
+                                if idx_pos < len(clsfs):
+                                    classification = clsfs[idx_pos]
+                        except ValueError:
+                            pass
+                            
+                    return res_hash, classification
+        return found_hash, None
 
     # mod_blocks에서 각 ini 를 읽어서 노드로 생성
     # 섹션 단위로 분리( [section] )하고 Resource로 시작하는 섹션에서 소켓 생성
@@ -292,9 +309,18 @@ def _create_mod_nodes(op, tree):
             hash_val = None
             socket_type = None
             target_key = None
+            classification = None
             for other_name, other_lines in sections.items():
                 if other_name == sec_name:
                     continue
+                
+                mfi = None
+                for ln in other_lines:
+                    m2 = re.match(r"^(?P<k>[^=]+)=(?P<v>.+)$", ln)
+                    if m2 and m2.group("k").strip().lower() == "match_first_index":
+                        mfi = m2.group("v").strip().split(";")[0].split("#")[0].strip()
+                        break
+                        
                 for ln in other_lines:
                     m = re.match(r"^(?P<k>[^=]+)=(?P<v>.+)$", ln)
                     if not m:
@@ -321,7 +347,7 @@ def _create_mod_nodes(op, tree):
                             # 없고 CommandList 계열이면 run=... 참조로 거슬러 올라가서 찾음
                             section_hash = _find_hash_recursive(other_name)
                             if section_hash:
-                                hash_val = _resolve_real_hash(section_hash, target_key)
+                                hash_val, classification = _resolve_real_hash(section_hash, target_key, mfi)
                             else:
                                 hash_val = None
                         break
@@ -335,6 +361,8 @@ def _create_mod_nodes(op, tree):
             socket_count += 1
             if hash_val:
                 out_sock["hash"] = str(hash_val)
+            if classification:
+                out_sock["classification"] = str(classification)
 
         # 모드 노드에 모드 텍스처 소켓 추가
         socket_count += _create_mod_texture_sockets(node, sections)
