@@ -168,6 +168,36 @@ def _create_mod_nodes(op, tree):
     y_socket_step = -20
     created_count = 0
 
+    # 에셋(hash.json) 데이터를 미리 수집하여 해시값 보정에 사용
+    asset_blocks = getattr(text_data_block, "_asset_text_blocks", set())
+    all_components = []
+    for t_name in list(asset_blocks):
+        t = bpy.data.texts.get(t_name)
+        if not t: continue
+        try:
+            content = "\n".join([ln.body for ln in t.lines])
+        except Exception:
+            content = t.as_string() if hasattr(t, "as_string") else ""
+        try:
+            data = json.loads(content)
+            if isinstance(data, list):
+                all_components.extend(data)
+        except Exception:
+            pass
+
+    def _resolve_real_hash(found_hash, target_key):
+        if not found_hash or not target_key:
+            return found_hash
+            
+        search_keys = ["position_vb", "blend_vb", "texcoord_vb", "ib", "draw_vb"]
+        for comp in all_components:
+            for k in search_keys:
+                if comp.get(k) == found_hash:
+                    # 발견된 컴포넌트에서 우리가 원하는 종류의 해시값을 반환
+                    res = comp.get(target_key)
+                    return str(res) if res else found_hash
+        return found_hash
+
     # mod_blocks에서 각 ini 를 읽어서 노드로 생성
     # 섹션 단위로 분리( [section] )하고 Resource로 시작하는 섹션에서 소켓 생성
     for text_name in list(mod_blocks):
@@ -261,6 +291,7 @@ def _create_mod_nodes(op, tree):
             # 키에 따라 소켓 타입을 결정하고, 참조 섹션의 hash 값을 가져옴
             hash_val = None
             socket_type = None
+            target_key = None
             for other_name, other_lines in sections.items():
                 if other_name == sec_name:
                     continue
@@ -274,17 +305,25 @@ def _create_mod_nodes(op, tree):
                     if v_clean == sec_name:
                         if k == "ib":
                             socket_type = "EVBH_IBSocket"
+                            target_key = "ib"
                         elif k == "vb2":
                             socket_type = "EVBH_BlendSocket"
+                            target_key = "blend_vb"
                         elif k == "vb0":
                             socket_type = "EVBH_PositionSocket"
+                            target_key = "position_vb"
                         elif k == "vb1":
                             socket_type = "EVBH_TexcoordSocket"
+                            target_key = "texcoord_vb"
 
                         if socket_type:
                             # 참조 섹션(other_name)에서 직접 hash를 찾고,
                             # 없고 CommandList 계열이면 run=... 참조로 거슬러 올라가서 찾음
-                            hash_val = _find_hash_recursive(other_name)
+                            section_hash = _find_hash_recursive(other_name)
+                            if section_hash:
+                                hash_val = _resolve_real_hash(section_hash, target_key)
+                            else:
+                                hash_val = None
                         break
                 if socket_type:
                     break
