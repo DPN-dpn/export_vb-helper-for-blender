@@ -200,6 +200,7 @@ def _create_mod_nodes(op, tree):
                     res_hash = str(res) if res else found_hash
                     
                     classification = None
+                    idx_pos = 0
                     if match_first_index is not None:
                         try:
                             mfi_val = int(match_first_index)
@@ -212,6 +213,23 @@ def _create_mod_nodes(op, tree):
                         except ValueError:
                             pass
                             
+                    # target_key가 텍스처 타입인 경우 texture_hashes 참조
+                    if target_key not in search_keys:
+                        tex_hashes = comp.get("texture_hashes", [])
+                        if idx_pos < len(tex_hashes):
+                            textures = tex_hashes[idx_pos]
+                            if textures:
+                                for tex in textures:
+                                    if isinstance(tex, (list, tuple)) and len(tex) >= 3:
+                                        if str(tex[0]).lower() == target_key.lower():
+                                            return str(tex[2]), classification
+                                    elif isinstance(tex, dict):
+                                        tex_name = tex.get("name") or tex.get("type")
+                                        if tex_name and str(tex_name).lower() == target_key.lower():
+                                            return str(tex.get("hash")), classification
+                        # 텍스처를 못 찾은 경우 기본값
+                        return found_hash, classification
+                        
                     return res_hash, classification
         return found_hash, None
 
@@ -274,6 +292,40 @@ def _create_mod_nodes(op, tree):
                             if hv2:
                                 return hv2
             return None
+
+        def _find_all_hashes_recursive(start_sec, visited=None):
+            if visited is None:
+                visited = set()
+            if start_sec in visited:
+                return []
+            visited.add(start_sec)
+            
+            results = []
+            lines0 = sections.get(start_sec, []) or []
+            
+            for ln_h in lines0:
+                m2 = re.match(r"^\s*hash\s*=\s*(.+)$", ln_h, re.IGNORECASE)
+                if m2:
+                    hv = m2.group(1).strip()
+                    hv = re.split(r";|#", hv)[0].strip().strip('"')
+                    if hv:
+                        results.append(hv)
+                        
+            if start_sec.lower().startswith("commandlist"):
+                for other_n, other_ls in sections.items():
+                    if other_n == start_sec:
+                        continue
+                    for ln_r in other_ls:
+                        mm = re.match(r"^(?P<k>[^=]+)=\s*(?P<v>.+)$", ln_r)
+                        if not mm:
+                            continue
+                        k_r = mm.group("k").strip().lower()
+                        v_r = mm.group("v").strip()
+                        v_clean_r = re.split(r";|#", v_r)[0].strip().strip('"')
+                        if k_r == "run" and v_clean_r == start_sec:
+                            res = _find_all_hashes_recursive(other_n, visited)
+                            results.extend(res)
+            return results
 
         for sec_name, lines in sections.items():
             # Resource로 시작하는 섹션을 대상으로 함 (대소문자 무시)
@@ -365,7 +417,7 @@ def _create_mod_nodes(op, tree):
                 out_sock["classification"] = str(classification)
 
         # 모드 노드에 모드 텍스처 소켓 추가
-        socket_count += _create_mod_texture_sockets(node, sections)
+        socket_count += _create_mod_texture_sockets(node, sections, _resolve_real_hash, _find_hash_recursive, _find_all_hashes_recursive)
 
         if socket_count == 0:
             tree.nodes.remove(node)
@@ -378,7 +430,7 @@ def _create_mod_nodes(op, tree):
     op.report({"INFO"}, f"생성된 모드 노드 수: {created_count}")
 
 
-def _create_mod_texture_sockets(node, sections):
+def _create_mod_texture_sockets(node, sections, _resolve_real_hash, _find_hash_recursive, _find_all_hashes_recursive):
     texture_count = 0
 
     for sec_name, lines in sections.items():
@@ -416,26 +468,104 @@ def _create_mod_texture_sockets(node, sections):
         # 다른 섹션의 key=value에서 현재 섹션명을 값으로 사용하는지 검사하여
         # 참조 섹션의 hash 값을 가져옴
         hash_val = None
+        classification = None
+        classifications = set()
+        all_hashes = set()
+        
+        # 이름이나 파일명에서 텍스처 타입 힌트 유추
+        fallback_tex_type = None
+        name_lower = sec_name.lower()
+        if "diffuse" in name_lower: fallback_tex_type = "Diffuse"
+        elif "normal" in name_lower: fallback_tex_type = "NormalMap"
+        elif "light" in name_lower: fallback_tex_type = "LightMap"
+        elif "material" in name_lower: fallback_tex_type = "MaterialMap"
+        elif filename:
+            fn_lower = filename.lower()
+            if "diffuse" in fn_lower: fallback_tex_type = "Diffuse"
+            elif "normal" in fn_lower: fallback_tex_type = "NormalMap"
+            elif "light" in fn_lower: fallback_tex_type = "LightMap"
+            elif "material" in fn_lower: fallback_tex_type = "MaterialMap"
+
         for other_name, other_lines in sections.items():
             if other_name == sec_name:
                 continue
+                
+            # match_first_index 추출
+            mfi = None
+            for ln in other_lines:
+                m2 = re.match(r"^(?P<k>[^=]+)=(?P<v>.+)$", ln)
+                if m2 and m2.group("k").strip().lower() == "match_first_index":
+                    mfi = m2.group("v").strip().split(";")[0].split("#")[0].strip()
+                    break
+                    
             for ln in other_lines:
                 m = re.match(r"^(?P<k>[^=]+)=\s*(?:ref\s*)?(?P<v>.+)$", ln)
                 if not m:
                     continue
-                k = m.group("k").strip().lower()
+                k = m.group("k").strip()
                 v = m.group("v").strip()
                 v_clean = re.split(r";|#", v)[0].strip().strip('"')
+                
                 if v_clean == sec_name:
-                    # 참조 섹션에서 hash 값 추출
-                    for ln2 in other_lines:
-                        m2 = re.match(r"^\s*hash\s*=\s*(.+)$", ln2, re.IGNORECASE)
-                        if m2:
-                            hv = m2.group(1).strip()
-                            hv = re.split(r";|#", hv)[0].strip().strip('"')
-                            hash_val = hv
-                            break
+                    k_lower = k.lower()
+                    found_hash = None
+                    found_cls = None
+                    
+                    # 1. this = ResourceA
+                    if k_lower == "this":
+                        for ln2 in other_lines:
+                            m2 = re.match(r"^\s*hash\s*=\s*(.+)$", ln2, re.IGNORECASE)
+                            if m2:
+                                hv = m2.group(1).strip()
+                                hv = re.split(r";|#", hv)[0].strip().strip('"')
+                                found_hash = hv
+                                _, found_cls = _resolve_real_hash(found_hash, "ib", mfi)
+                                break
+                        
+                    # 2. Resource\...\Diffuse = ref ResourceA
+                    elif k_lower.startswith("resource\\"):
+                        parts = k.split("\\")
+                        tex_type = parts[-1]  
+                        
+                        section_hashes = _find_all_hashes_recursive(other_name)
+                        for section_hash in section_hashes:
+                            h, cls = _resolve_real_hash(section_hash, tex_type, mfi)
+                            if h:
+                                if hash_val is None:
+                                    hash_val = h
+                                all_hashes.add(h)
+                            if cls:
+                                classifications.add(cls)
+                        
+                    # 3. ps-t3 = ResourceA
+                    elif re.match(r"^ps-t\d+$", k_lower):
+                        section_hashes = _find_all_hashes_recursive(other_name)
+                        for section_hash in section_hashes:
+                            h, cls = None, None
+                            if fallback_tex_type:
+                                h, cls = _resolve_real_hash(section_hash, fallback_tex_type, mfi)
+                            else:
+                                _, cls = _resolve_real_hash(section_hash, "ib", mfi)
+                                h = section_hash
+                            
+                            if h:
+                                if hash_val is None:
+                                    hash_val = h
+                                all_hashes.add(h)
+                            if cls:
+                                classifications.add(cls)
+                                
+                    if found_hash:
+                        if hash_val is None:
+                            hash_val = found_hash
+                        all_hashes.add(found_hash)
+                    if found_cls:
+                        classifications.add(found_cls)
                     break
+                    
+        classification = None
+        if len(classifications) == 1:
+            classification = classifications.pop()
 
         # 텍스처 소켓 토글 처리
         try:
@@ -453,16 +583,29 @@ def _create_mod_texture_sockets(node, sections):
                     "is_output": True,
                     "name": socket_label,
                     "hash": str(hash_val) if hash_val else None,
+                    "all_hashes": ",".join(all_hashes) if all_hashes else None,
                 }
             )
             node[key] = saved
             continue
 
-        # 소켓 생성
-        out_sock = node.outputs.new("EVBH_TextureSocket", socket_label)
-        texture_count += 1
+        # 소켓 생성 (중복 방지)
+        if socket_label in node.outputs:
+            out_sock = node.outputs[socket_label]
+        else:
+            out_sock = node.outputs.new("EVBH_TextureSocket", socket_label)
+            texture_count += 1
+            
         if hash_val:
             out_sock["hash"] = str(hash_val)
+        if all_hashes:
+            out_sock["all_hashes"] = ",".join(all_hashes)
+        if classification:
+            out_sock["classification"] = str(classification)
+        else:
+            # If multiple classifications, we explicitly remove it so it links to all
+            if "classification" in out_sock:
+                del out_sock["classification"]
 
     return texture_count
 

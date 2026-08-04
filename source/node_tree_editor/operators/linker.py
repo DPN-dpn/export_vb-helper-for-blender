@@ -68,8 +68,17 @@ class EVBH_OT_auto_link(Operator):
                         continue
                     if inp_type != out_type:
                         continue
-                    if str(inp_hash) != str(out_hash):
-                        continue
+                    if out_type == "EVBH_TextureSocket":
+                        out_hashes = out_sock.get("all_hashes", "")
+                        if out_hashes:
+                            hash_list = out_hashes.split(",")
+                        else:
+                            hash_list = [str(out_hash)] if out_hash else []
+                        if str(inp_hash) not in hash_list:
+                            continue
+                    else:
+                        if str(inp_hash) != str(out_hash):
+                            continue
                     
                     inp_cls = inp.get("classification", None)
                     out_cls = out_sock.get("classification", None)
