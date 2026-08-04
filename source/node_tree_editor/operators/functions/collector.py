@@ -214,9 +214,11 @@ def collect_matching_strings(mappings):
                     mod_node, {"sockets": set(), "replacements": {}}
                 )
                 m["sockets"].add(orig)
-                m["replacements"][orig] = {
+                
+                repl_list = m["replacements"].setdefault(orig, [])
+                repl_list.append({
                     "new_base": new_base,
                     "section": section_name,
-                }
+                })
 
     return matchings, asset_name

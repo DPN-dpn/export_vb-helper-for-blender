@@ -25,7 +25,7 @@ def _create_asset_nodes(op, tree):
     x = 0
     y = 0
     y_step = -80
-    y_socket_step = -20
+    y_socket_step = -22
     created_count = 0
 
     for text_name in list(asset_blocks):
@@ -167,7 +167,7 @@ def _create_mod_nodes(op, tree):
     x = -350
     y = 0
     y_step = -80
-    y_socket_step = -20
+    y_socket_step = -22
     created_count = 0
 
     # 에셋(hash.json) 데이터를 미리 수집하여 해시값 보정에 사용

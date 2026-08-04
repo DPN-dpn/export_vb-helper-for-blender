@@ -194,36 +194,41 @@ def copy_exported_files(op, export_dir, mod_path, matchings):
                 repl_key = orig_base
             else:
                 repl_key = orig
-                replacements.setdefault(repl_key, {})["new_base"] = orig_base
+                replacements.setdefault(repl_key, []).append({"new_base": orig_base})
 
-            desired_base = replacements.get(repl_key, {}).get("new_base") or orig_base
+            repl_list = replacements.get(repl_key, [])
+            if not repl_list:
+                repl_list = [{"new_base": orig_base}]
 
-            # 충돌 시 덮어쓰기
-            candidate = desired_base
-            dst_path = os.path.join(export_dir, candidate)
-            if candidate in used_names or os.path.exists(dst_path):
-                op.report(
-                    {"INFO"},
-                    f"파일명 충돌로 덮어쓰기: '{candidate}' (mod: {mod_name})",
-                )
-
-            dst = os.path.join(export_dir, candidate)
-            dst_dir = os.path.dirname(dst)
-            if dst_dir:
-                os.makedirs(dst_dir, exist_ok=True)
-
-            try:
-                shutil.copy2(src, dst)
-                copied_files.append(dst)
-                used_names.add(candidate)
-                # matchings에 최종 파일명 기록 (나중에 INI 작성 시 사용)
-                replacements.setdefault(repl_key, {})["final_base"] = candidate
-            except Exception as e:
-                op.report(
-                    {"WARNING"},
-                    f"파일 복사 실패: {src} -> {dst} ({e})",
-                )
-                continue
+            for r_item in repl_list:
+                desired_base = r_item.get("new_base") or orig_base
+    
+                # 충돌 시 덮어쓰기
+                candidate = desired_base
+                dst_path = os.path.join(export_dir, candidate)
+                if candidate in used_names or os.path.exists(dst_path):
+                    op.report(
+                        {"INFO"},
+                        f"파일명 충돌로 덮어쓰기: '{candidate}' (mod: {mod_name})",
+                    )
+    
+                dst = os.path.join(export_dir, candidate)
+                dst_dir = os.path.dirname(dst)
+                if dst_dir:
+                    os.makedirs(dst_dir, exist_ok=True)
+    
+                try:
+                    shutil.copy2(src, dst)
+                    copied_files.append(dst)
+                    used_names.add(candidate)
+                    # matchings에 최종 파일명 기록 (나중에 INI 작성 시 사용)
+                    r_item["final_base"] = candidate
+                except Exception as e:
+                    op.report(
+                        {"WARNING"},
+                        f"파일 복사 실패: {src} -> {dst} ({e})",
+                    )
+                    continue
 
     op.report({"INFO"}, f"파일 복사 완료: {len(copied_files)}개")
     return copied_files

@@ -81,6 +81,8 @@ def replace_strings(op, ini_contents, matchings):
                     ):
                         found_repl = repls.get(orig) or repls.get(orig_base)
                         if found_repl:
+                            if isinstance(found_repl, list):
+                                found_repl = found_repl[0]
                             break
                 if found_repl:
                     break
