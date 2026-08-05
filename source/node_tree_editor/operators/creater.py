@@ -380,6 +380,13 @@ def _create_mod_nodes(op, tree):
                     k = m.group("k").strip().lower()
                     v = m.group("v").strip()
                     v_clean = re.split(r";|#", v)[0].strip().strip('"')
+                    
+                    v_check = v_clean.lower()
+                    if v_check.startswith("copy "):
+                        v_clean = v_clean[5:].strip()
+                    elif v_check.startswith("ref "):
+                        v_clean = v_clean[4:].strip()
+
                     if v_clean == sec_name:
                         if k == "ib":
                             socket_type = "EVBH_IBSocket"
@@ -405,6 +412,62 @@ def _create_mod_nodes(op, tree):
                         break
                 if socket_type:
                     break
+
+            if socket_type is None:
+                # 이름 기반으로 타입 추정 (Shapekey 등으로 직접 vb0 할당이 안된 경우)
+                name_lower = (filename or sec_name).lower()
+                if "position" in name_lower or "vb0" in name_lower:
+                    socket_type = "EVBH_PositionSocket"
+                    target_key = "position_vb"
+                elif "blend" in name_lower or "vb2" in name_lower:
+                    socket_type = "EVBH_BlendSocket"
+                    target_key = "blend_vb"
+                elif "texcoord" in name_lower or "vb1" in name_lower:
+                    socket_type = "EVBH_TexcoordSocket"
+                    target_key = "texcoord_vb"
+                elif name_lower.endswith(".ib") or "ib" in name_lower.split("\\")[-1].split("/")[-1]:
+                    socket_type = "EVBH_IBSocket"
+                    target_key = "ib"
+
+            if socket_type and not hash_val:
+                # 못 찾은 경우, 전체 섹션을 탐색해 동일한 타입(vb0 등)으로 할당된 대상 리소스의 이름이
+                # 현재 리소스와 유사하다면 해당 override의 해시를 차용
+                for t_sec_name, t_lines in sections.items():
+                    t_hash = None
+                    t_target_res = None
+                    mfi = None
+                    
+                    for ln in t_lines:
+                        m_h = re.match(r"^\s*hash\s*=\s*(.+)$", ln, re.IGNORECASE)
+                        if m_h:
+                            t_hash = re.split(r";|#", m_h.group(1))[0].strip().strip('"')
+                        
+                        m_mfi = re.match(r"^\s*match_first_index\s*=\s*(.+)$", ln, re.IGNORECASE)
+                        if m_mfi:
+                            mfi = re.split(r";|#", m_mfi.group(1))[0].strip()
+
+                        m_k = re.match(r"^(?P<k>[^=]+)=(?P<v>.+)$", ln)
+                        if m_k:
+                            k = m_k.group("k").strip().lower()
+                            v = re.split(r";|#", m_k.group("v"))[0].strip().strip('"')
+                            
+                            if k == "vb0" and target_key == "position_vb":
+                                t_target_res = v
+                            elif k == "vb2" and target_key == "blend_vb":
+                                t_target_res = v
+                            elif k == "vb1" and target_key == "texcoord_vb":
+                                t_target_res = v
+                            elif k == "ib" and target_key == "ib":
+                                t_target_res = v
+                                
+                    if t_hash and t_target_res:
+                        if t_target_res.lower() in sec_name.lower() or sec_name.lower() in t_target_res.lower():
+                            h, cls = _resolve_real_hash(t_hash, target_key, mfi)
+                            if h:
+                                hash_val = h
+                            if cls:
+                                classification = cls
+                            break
 
             if socket_type is None:
                 continue
