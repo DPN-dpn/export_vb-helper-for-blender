@@ -111,6 +111,54 @@ def _replace_relational_logic(op, order, sections):
     return order, sections
 
 
+def _reorder_resources_for_export_vb(op, order, sections):
+    """
+    export_vb.py는 'Position' 버퍼를 기준으로 딕셔너리를 초기화하므로,
+    반드시 Position 관련 Resource 섹션이 Blend나 기타 버퍼 섹션보다 
+    INI 상단에 먼저 나타나야 KeyError가 발생하지 않습니다.
+    """
+    resources = []
+    others = []
+    
+    for sec in order:
+        if sec.lower().startswith("resource"):
+            resources.append(sec)
+        else:
+            others.append(sec)
+            
+    # resources 내부 정렬: 'position' > 'blend' > 'texcoord' > 기타
+    def sort_key(x):
+        lower_x = x.lower()
+        if "position" in lower_x:
+            return 0
+        elif "blend" in lower_x:
+            return 1
+        elif "texcoord" in lower_x:
+            return 2
+        else:
+            return 3
+            
+    # 기존 순서(stable sort)를 최대한 유지하면서 키를 기준으로 정렬
+    resources.sort(key=sort_key)
+    
+    # Constants 뒤에 넣기 위해
+    final_order = []
+    constants_added = False
+    for sec in others:
+        final_order.append(sec)
+        if sec.lower() == "constants" and not constants_added:
+            final_order.extend(resources)
+            constants_added = True
+            
+    if not constants_added:
+        final_order = resources + others
+        
+    if final_order != order:
+        op.report({"INFO"}, "export_vb.py 호환성을 위해 Resource 섹션 순서를 재정렬했습니다.")
+        
+    return final_order, sections
+
+
 def preprocess_ini(op, ini_contents):
     if not ini_contents:
         op.report({"INFO"}, "전처리할 ini_contents가 없습니다")
@@ -124,6 +172,9 @@ def preprocess_ini(op, ini_contents):
 
     # !=, >=, <= 연산자 치환
     order, sections = _replace_relational_logic(op, order, sections)
+
+    # export_vb 호환성: Resource 섹션 순서(Position 선행) 재정렬
+    order, sections = _reorder_resources_for_export_vb(op, order, sections)
 
     ini_contents["order"] = order
     ini_contents["sections"] = sections
