@@ -60,6 +60,13 @@ def _create_asset_nodes(op, tree):
                 "texcoord_vb": "Texcoord",
             }
             for key in ("position_vb", "blend_vb", "texcoord_vb"):
+                hint_val = comp.get(key, "")
+                if hint_val is None:
+                    hint_val = ""
+
+                if key != "position_vb" and not hint_val:
+                    continue
+
                 display = name_map.get(key, key)
                 socket_type = (
                     "EVBH_PositionSocket"
@@ -72,9 +79,6 @@ def _create_asset_nodes(op, tree):
                 )
                 sock = node.inputs.new(socket_type, display)
                 socket_count += 1
-                hint_val = comp.get(key, "")
-                if hint_val is None:
-                    hint_val = ""
                 try:
                     sock["hash"] = str(hint_val)
                 except Exception:

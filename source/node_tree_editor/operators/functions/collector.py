@@ -166,6 +166,21 @@ def collect_matching_strings(mappings):
 
     asset_name = mappings.get("asset_name", "") or ""
 
+    # 단일 버퍼 모드(무기, 맵 오브젝트 등 Blend/Texcoord가 없는 모드) 식별
+    mod_socket_types = {}
+    for entry in mappings.get("inputs", []):
+        for asset in entry.get("asset_node", []):
+            for mod in asset.get("mods", []):
+                m_node = mod.get("mod_node_name", "")
+                s_type = mod.get("mod_socket_type", "")
+                if m_node and s_type:
+                    mod_socket_types.setdefault(m_node, set()).add(s_type)
+
+    single_buffer_mods = set()
+    for m_node, types in mod_socket_types.items():
+        if "EVBH_PositionSocket" in types and "EVBH_BlendSocket" not in types and "EVBH_TexcoordSocket" not in types:
+            single_buffer_mods.add(m_node)
+
     for entry in mappings.get("inputs", []):
         for asset in entry.get("asset_node", []):
             asset_node_name = asset.get("asset_node_name", "") or ""
@@ -179,11 +194,16 @@ def collect_matching_strings(mappings):
                 asset_input_name = mod.get("asset_input_name", "") or ""
                 asset_input_class = mod.get("asset_input_class", "") or ""
 
+                is_single_buffer = mod_node in single_buffer_mods
+
                 # tail 결정 (기존 규칙을 참고하여 IB/Texture는 class 기반)
                 if sock_type in ("EVBH_IBSocket", "EVBH_TextureSocket"):
                     tail = asset_input_class or asset_input_name
                 else:
-                    tail = asset_input_name
+                    if is_single_buffer and asset_input_name == "Position":
+                        tail = ""
+                    else:
+                        tail = asset_input_name
 
                 orig_base = os.path.basename(orig)
                 orig_ext = os.path.splitext(orig_base)[1] or ""
@@ -208,7 +228,7 @@ def collect_matching_strings(mappings):
                 if asset_input_name == "IB":
                     section_name = f"{asset_name}{asset_node_name}{asset_input_class}{asset_input_name}"
                 else:
-                    section_name = f"{asset_name}{asset_node_name}{asset_input_name}"
+                    section_name = f"{asset_name}{asset_node_name}{tail}"
 
                 m = matchings.setdefault(
                     mod_node, {"sockets": set(), "replacements": {}}
