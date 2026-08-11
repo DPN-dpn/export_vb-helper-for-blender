@@ -44,6 +44,10 @@ class EVBH_OT_select_mod(Operator, ImportHelper):
     filter_glob: StringProperty(default="", options={"HIDDEN"})
 
     def invoke(self, context, event):
+        if self.filepath:
+            self.filepath = os.path.dirname(self.filepath)
+            if not self.filepath.endswith(os.sep):
+                self.filepath += os.sep
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
