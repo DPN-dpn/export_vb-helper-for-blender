@@ -35,28 +35,23 @@ class EVBH_OT_select_asset(Operator, ImportHelper):
         return {"FINISHED"}
 
 
-class EVBH_OT_select_mod(Operator, ImportHelper):
+class EVBH_OT_select_mod(Operator):
     bl_idname = "evbh.select_mod"
     bl_label = "모드 폴더 선택"
     bl_description = "모드 폴더를 선택하세요"
 
-    filename_ext = ""
-    filter_glob: StringProperty(default="", options={"HIDDEN"})
+    directory: StringProperty(
+        name="모드 폴더",
+        description="모드 폴더를 선택하세요",
+        subtype="DIR_PATH",
+    )
 
     def invoke(self, context, event):
-        if self.filepath:
-            self.filepath = os.path.dirname(self.filepath)
-            if not self.filepath.endswith(os.sep):
-                self.filepath += os.sep
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
     def execute(self, context):
-        chosen = os.path.expanduser(self.filepath)
-        if os.path.isfile(chosen):
-            base = os.path.dirname(chosen)
-        else:
-            base = chosen
+        base = os.path.expanduser(self.directory)
         if not base or not os.path.isdir(base):
             self.report({"ERROR"}, f"유효하지 않은 폴더입니다: {base}")
             return {"CANCELLED"}
