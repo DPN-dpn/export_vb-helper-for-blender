@@ -1,7 +1,6 @@
 import bpy
 from bpy.types import Operator
 from bpy.props import StringProperty
-from bpy_extras.io_utils import ImportHelper
 import os
 import re
 import shutil
@@ -281,26 +280,25 @@ def create_exported_files(
     return export_dir
 
 
-class EVBH_OT_export_mod(Operator, ImportHelper):
+class EVBH_OT_export_mod(Operator):
     bl_idname = "evbh.export_mod"
     bl_label = "내보내기"
     bl_description = "사전작업을 적용한 모드를 내보냅니다"
 
-    filename_ext = ""
-    filter_glob: StringProperty(default="", options={"HIDDEN"})
+    directory: StringProperty(
+        name="내보내기 폴더",
+        description="내보낼 폴더를 선택하세요",
+        subtype="DIR_PATH",
+    )
 
     def invoke(self, context, event):
-        if self.filepath:
-            self.filepath = os.path.dirname(self.filepath)
-            if not self.filepath.endswith(os.sep):
-                self.filepath += os.sep
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
     def execute(self, context):
         # 내보내기 경로 설정
         try:
-            export_path = select_export_path(context, self.filepath)
+            export_path = select_export_path(context, self.directory)
         except Exception as e:
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}
